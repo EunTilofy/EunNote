@@ -1,0 +1,19 @@
+[Unit]
+Description=Shuji real-time number game
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/EunNote/shuji
+ExecStart=%h/.local/node/bin/node %h/EunNote/shuji/server.js
+Environment=HOST=127.0.0.1
+Environment=PORT=6358
+Environment=FUNCTION_KEY_FILE=%h/EunNote/clipboard/data/access-token
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

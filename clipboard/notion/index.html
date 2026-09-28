@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f1ea">
+  <title>note</title>
+  <link rel="stylesheet" href="/notion/style.css">
+  <script src="/notion/app.js" defer></script>
+</head>
+<body>
+  <div class="paper-noise" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="brand-group"><a id="backHome" class="back-home" href="/">← 功能页</a><a class="brand" href="/notion/" aria-label="note 首页">note<span>.</span></a></div>
+    <div class="header-right">
+      <span id="syncStatus" class="sync-status"><i></i>正在连接</span>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="切换深浅主题" title="切换深浅主题"><span aria-hidden="true">◐</span></button>
+      <div class="identity-switch" aria-label="选择我的身份">
+        <span>我是</span>
+        <button id="identityButton" type="button">选择身份</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <p class="eyebrow">TWO PEOPLE · ONE LITTLE SPACE</p>
+      <div id="introEditor" class="intro-title-editor">
+        <h1 id="introTitle" data-color="ink" tabindex="0" role="textbox" aria-label="网站标题，点击修改" title="点击修改标题和颜色">今天，也在好好生活。</h1>
+        <div id="introColors" class="intro-colors" aria-label="选择标题颜色" hidden>
+          <button type="button" data-title-color="ink" aria-label="墨黑" title="墨黑"></button>
+          <button type="button" data-title-color="coral" aria-label="陶土橙" title="陶土橙"></button>
+          <button type="button" data-title-color="sage" aria-label="鼠尾草绿" title="鼠尾草绿"></button>
+          <button type="button" data-title-color="blue" aria-label="雾蓝" title="雾蓝"></button>
+          <button type="button" data-title-color="plum" aria-label="梅紫" title="梅紫"></button>
+          <button type="button" data-title-color="amber" aria-label="暖金" title="暖金"></button>
+        </div>
+      </div>
+      <p>写下脑子里的事，告诉彼此此刻在忙什么。</p>
+    </section>
+
+    <section id="boards" class="boards" aria-label="双人记事板"></section>
+
+    <section class="gpu-section" aria-labelledby="gpuSectionTitle">
+      <div class="gpu-section-heading">
+        <div>
+          <p class="eyebrow">GPU PULSE</p>
+          <h2 id="gpuSectionTitle">GPU 用量</h2>
+        </div>
+        <p id="gpuOverview" class="gpu-overview">等待机器上报</p>
+      </div>
+      <div id="gpuMachines" class="gpu-machines" aria-live="polite"></div>
+    </section>
+
+    <section class="wall-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">OUR LITTLE WALL</p>
+          <h2>贴贴墙</h2>
+        </div>
+        <div class="wall-heading-side">
+          <p>一些照片，一点牢骚，还有想留给彼此的话。</p>
+          <div id="wallTools" class="wall-tools">
+            <div class="wall-view-switch" aria-label="贴贴墙显示方式">
+              <button type="button" data-wall-view="grid" aria-pressed="true" title="紧密排布">▦</button>
+              <button type="button" data-wall-view="list" aria-pressed="false" title="时间列表">☷</button>
+            </div>
+            <button id="wallFilterButton" class="wall-filter-button" type="button" aria-expanded="false">筛选贴贴</button>
+            <section id="wallFilterPanel" class="wall-filter-panel" aria-label="筛选贴贴" hidden>
+              <div class="filter-group"><span>内容</span><div>
+                <button type="button" data-filter-kind="all" aria-pressed="true">全部</button>
+                <button type="button" data-filter-kind="note" aria-pressed="false">普通贴贴</button>
+                <button type="button" data-filter-kind="diary" aria-pressed="false">日记</button>
+              </div></div>
+              <div class="filter-group"><span>风格</span><div>
+                <button type="button" data-filter-style="all" aria-pressed="true">全部</button>
+                <button type="button" data-filter-style="paper" aria-pressed="false">素纸</button>
+                <button type="button" data-filter-style="warm" aria-pressed="false">暖光</button>
+                <button type="button" data-filter-style="sage" aria-pressed="false">青苔</button>
+                <button type="button" data-filter-style="moon" aria-pressed="false">月蓝</button>
+                <button type="button" data-filter-style="plum" aria-pressed="false">梅紫</button>
+              </div></div>
+              <label class="filter-featured"><input id="filterFeatured" type="checkbox"><span>✦ 只看精华贴贴</span></label>
+              <button id="clearWallFilters" class="clear-wall-filters" type="button">清除筛选</button>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div id="wall" class="wall-grid" aria-live="polite"></div>
+      <button id="showMore" class="show-more" type="button" hidden>再看一些</button>
+      <div id="composer" class="composer">
+        <textarea id="wallText" rows="2" maxlength="1000" placeholder="说点什么吧…"></textarea>
+        <div class="wall-compose-options">
+          <div class="compose-option-group"><span>类型</span><div class="option-segment">
+            <button type="button" data-compose-kind="note" aria-pressed="true">贴贴</button>
+            <button type="button" data-compose-kind="diary" aria-pressed="false">日记</button>
+          </div></div>
+          <div class="compose-option-group style-option-group"><span>风格</span><div class="wall-style-options">
+            <button type="button" data-compose-style="paper" aria-pressed="true"><i></i>素纸</button>
+            <button type="button" data-compose-style="warm" aria-pressed="false"><i></i>暖光</button>
+            <button type="button" data-compose-style="sage" aria-pressed="false"><i></i>青苔</button>
+            <button type="button" data-compose-style="moon" aria-pressed="false"><i></i>月蓝</button>
+            <button type="button" data-compose-style="plum" aria-pressed="false"><i></i>梅紫</button>
+          </div></div>
+          <label class="wall-featured-option"><input id="wallFeatured" type="checkbox"><span>✦ 精华</span></label>
+        </div>
+        <div class="composer-actions">
+          <div class="paste-hint">
+            <button id="pickImages" class="quiet-button" type="button"><span>＋</span> 添加图片</button>
+            <input id="imageInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+            <span>也可以拖进来，或直接粘贴</span>
+          </div>
+          <button id="publish" class="primary-button" type="button">贴上去</button>
+        </div>
+        <div id="pendingImages" class="pending-images" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="todoModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-todo></div>
+    <form id="todoModalForm" class="modal-card todo-modal-card" role="dialog" aria-modal="true" aria-labelledby="todoModalTitle">
+      <button class="modal-close" data-close-todo type="button" aria-label="关闭">×</button>
+      <p class="eyebrow">A NEW THING</p>
+      <h2 id="todoModalTitle">新增待办</h2>
+      <label class="field-label" for="todoModalText">待办内容</label>
+      <input id="todoModalText" class="text-input todo-modal-text" maxlength="120" autocomplete="off" placeholder="准备做点什么？">
+      <div class="todo-modal-options">
+        <label class="todo-option-card">
+          <input id="todoModalRecurring" type="checkbox">
+          <span><strong>周期待办</strong><small>完成后按设定间隔生成下一次，并保留本次记录</small></span>
+        </label>
+        <div id="todoRecurrenceFields" class="todo-recurrence-fields" hidden>
+          <span>每</span>
+          <input id="todoRecurrenceInterval" type="number" min="1" max="10000" step="1" value="1" inputmode="numeric" aria-label="周期间隔">
+          <select id="todoRecurrenceUnit" aria-label="周期单位">
+            <option value="days">天</option>
+            <option value="hours">小时</option>
+          </select>
+          <span>一次</span>
+        </div>
+        <label class="todo-option-card important-option">
+          <input id="todoModalImportant" type="checkbox">
+          <span><strong>重要待办</strong><small>在待办和正在做中显示为红色</small></span>
+        </label>
+      </div>
+      <p id="todoDatePreview" class="todo-date-preview" hidden></p>
+      <button id="saveTodo" class="primary-button wide" type="submit">加入待办</button>
+    </form>
+  </div>
+
+  <div id="profileModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+      <button class="modal-close" data-close-modal type="button" aria-label="关闭">×</button>
+      <p class="eyebrow">MAKE IT YOURS</p>
+      <h2 id="profileTitle">设置个人资料</h2>
+      <div class="avatar-editor">
+        <button id="avatarPicker" class="avatar-preview" type="button" aria-label="选择头像"></button>
+        <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+        <div><strong>头像</strong><p>点击更换，建议使用方形图片</p></div>
+      </div>
+      <label class="field-label" for="profileName">你的名字</label>
+      <input id="profileName" class="text-input" maxlength="20" autocomplete="off" placeholder="输入名字">
+      <button id="saveProfile" class="primary-button wide" type="button">保存</button>
+    </section>
+  </div>
+
+  <div id="sloganModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-slogan></div>
+    <section class="modal-card slogan-modal-card" role="dialog" aria-modal="true" aria-labelledby="sloganTitle">
+      <button class="modal-close" data-close-slogan type="button" aria-label="关闭">×</button>
+      <p class="eyebrow">A LITTLE LINE</p>
+      <h2 id="sloganTitle">设置一句话</h2>
+      <label class="field-label" for="sloganText">Slogan</label>
+      <textarea id="sloganText" class="slogan-input" rows="3" maxlength="120" placeholder="写一句现在想说的话……"></textarea>
+      <p class="field-label slogan-color-label">卡片颜色</p>
+      <div id="sloganColors" class="slogan-color-picker" aria-label="选择 slogan 卡片颜色">
+        <button type="button" data-slogan-color="neutral" aria-label="中性灰" title="中性灰"></button>
+        <button type="button" data-slogan-color="coral" aria-label="陶土橙" title="陶土橙"></button>
+        <button type="button" data-slogan-color="sage" aria-label="鼠尾草绿" title="鼠尾草绿"></button>
+        <button type="button" data-slogan-color="blue" aria-label="雾蓝" title="雾蓝"></button>
+        <button type="button" data-slogan-color="plum" aria-label="梅紫" title="梅紫"></button>
+        <button type="button" data-slogan-color="amber" aria-label="暖金" title="暖金"></button>
+      </div>
+      <button id="saveSlogan" class="primary-button wide" type="button">保存</button>
+    </section>
+  </div>
+
+  <div id="wallEditModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-wall-edit></div>
+    <section class="modal-card wall-edit-modal" role="dialog" aria-modal="true" aria-labelledby="wallEditTitle">
+      <button class="modal-close" data-close-wall-edit type="button" aria-label="关闭">×</button>
+      <p class="eyebrow">TUNE THIS POST</p>
+      <h2 id="wallEditTitle">修改贴贴</h2>
+      <label class="field-label" for="wallEditText">内容</label>
+      <textarea id="wallEditText" class="wall-edit-text" rows="5" maxlength="1000" placeholder="写点什么……"></textarea>
+      <section id="wallEditImageArea" class="wall-edit-image-area">
+        <div class="wall-edit-image-heading"><span>图片 <small id="wallEditImageCount">0 / 8</small></span><button id="addWallEditImages" type="button">＋ 添加图片</button></div>
+        <input id="wallEditImageInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+        <div id="wallEditImages" class="wall-edit-images"></div>
+        <p>可以添加、拖入或直接粘贴图片；点击缩略图上的 × 可删除。</p>
+      </section>
+      <div class="wall-edit-options">
+        <div class="edit-option-row"><span>类型</span><div class="option-segment">
+          <button type="button" data-edit-kind="note">贴贴</button>
+          <button type="button" data-edit-kind="diary">日记</button>
+        </div></div>
+        <div class="edit-option-row edit-style-row"><span>风格</span><div class="wall-style-options">
+          <button type="button" data-edit-style="paper"><i></i>素纸</button>
+          <button type="button" data-edit-style="warm"><i></i>暖光</button>
+          <button type="button" data-edit-style="sage"><i></i>青苔</button>
+          <button type="button" data-edit-style="moon"><i></i>月蓝</button>
+          <button type="button" data-edit-style="plum"><i></i>梅紫</button>
+        </div></div>
+        <label class="wall-featured-option edit-featured"><input id="wallEditFeatured" type="checkbox"><span>✦ 设为精华贴贴</span></label>
+      </div>
+      <p class="wall-edit-hint">已有图片会原样保留。</p>
+      <button id="saveWallEdit" class="primary-button wide" type="button">保存修改</button>
+    </section>
+  </div>
+
+  <div id="imagePreview" class="image-preview" role="dialog" aria-modal="true" aria-label="图片预览" hidden>
+    <div class="image-preview-backdrop" data-close-image-preview></div>
+    <button class="image-preview-close" data-close-image-preview type="button" aria-label="关闭图片预览">×</button>
+    <button id="imagePreviewPrevious" class="image-preview-nav previous" type="button" aria-label="上一张图片">‹</button>
+    <figure class="image-preview-stage"><img id="imagePreviewImage" alt="贴贴图片预览"><figcaption id="imagePreviewCount"></figcaption></figure>
+    <button id="imagePreviewNext" class="image-preview-nav next" type="button" aria-label="下一张图片">›</button>
+  </div>
+
+  <div id="gpuDetailModal" class="gpu-detail-modal" role="dialog" aria-modal="true" aria-labelledby="gpuDetailTitle" hidden>
+    <div class="gpu-detail-backdrop" data-close-gpu-detail></div>
+    <section id="gpuDetailContent" class="gpu-detail-stage"></section>
+    <button id="gpuDetailClose" class="gpu-detail-close" data-close-gpu-detail type="button" aria-label="关闭 GPU 详情">×</button>
+  </div>
+
+  <div id="identityModal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <section class="modal-card identity-modal" role="dialog" aria-modal="true" aria-labelledby="identityTitle">
+      <p class="eyebrow">WHO ARE YOU?</p>
+      <h2 id="identityTitle">先选一下你是谁</h2>
+      <p>只影响新发的内容归属，双方仍然可以编辑全部内容。</p>
+      <div id="identityChoices" class="identity-choices"></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

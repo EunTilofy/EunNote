@@ -1,0 +1,17 @@
+# Runtime dependencies
+**/node_modules/
+
+# Private runtime state and uploaded media
+clipboard/data/**
+!clipboard/data/.gitkeep
+shuji/data/**
+!shuji/data/.gitkeep
+
+# Local configuration and generated output
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+coverage/
+.DS_Store

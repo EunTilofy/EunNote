@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>在线剪贴板</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #1d293b; background: #f3f6fb; color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 20px; }
+    main { max-width: 1080px; margin: auto; }
+    header, .toolbar, footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    h1 { font-size: 26px; letter-spacing: -.6px; margin: 0 0 8px; }
+    p { margin: 0; color: #64748b; font-size: 14px; line-height: 1.7; }
+    .badge { padding: 7px 12px; border-radius: 20px; color: #2563eb; background: #e7efff; font-size: 13px; }
+    .editor { margin: 26px 0 14px; border: 1px solid #dce3ef; border-radius: 16px; background: white; overflow: hidden; box-shadow: 0 12px 40px #243d6310; }
+    .toolbar { padding: 13px 18px; border-bottom: 1px solid #e8edf4; }
+    #status { font-size: 13px; color: #52627a; }
+    #status[data-kind="error"] { color: #bd263b; }
+    #status[data-kind="saved"] { color: #15803d; }
+    .actions { display: flex; gap: 8px; }
+    button { cursor: pointer; border: 1px solid #d9e1ed; border-radius: 8px; background: white; color: #334155; padding: 9px 14px; font: inherit; font-size: 13px; }
+    button.primary { background: #2563eb; color: white; border-color: #2563eb; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button:focus-visible, textarea:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
+    textarea { display: block; resize: vertical; border: 0; width: 100%; min-height: 360px; height: 65vh; background: transparent; color: inherit; padding: 24px; font: 15px/1.8 ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 4; }
+    textarea::placeholder { color: #94a3b8; }
+    footer { font-size: 12px; color: #64748b; }
+    .notice { margin-top: 18px; font-size: 12px; }
+    .back-home { display: inline-flex; margin-bottom: 22px; color: #64748b; text-decoration: none; font-size: 13px; }
+    .back-home:hover { color: #2563eb; }
+    @media (max-width: 600px) { body { padding: 22px 12px; } textarea { padding: 16px; } .toolbar { padding: 12px; } }
+    @media (prefers-color-scheme: dark) {
+      :root { color: #e2e8f0; background: #0f172a; color-scheme: dark; }
+      .editor { background: #172033; border-color: #334155; }
+      .toolbar { border-color: #334155; }
+      button { background: #243047; color: #e2e8f0; border-color: #475569; }
+      p, footer, #status { color: #a5b4c9; }
+      .badge { background: #1e3a5f; color: #93c5fd; }
+      #status[data-kind="saved"] { color: #86efac; }
+      #status[data-kind="error"] { color: #fda4af; }
+    }
+  </style>
+  <script src="/clipboard/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <a id="backHome" class="back-home" href="/">← 功能页</a>
+    <header>
+      <div><h1>在线剪贴板</h1><p>在这里粘贴，在另一台设备打开同一链接复制。</p></div>
+      <span class="badge">一个链接 · 一份最新文本</span>
+    </header>
+    <section class="editor" aria-label="共享文本编辑器">
+      <div class="toolbar">
+        <span id="status" role="status" aria-live="polite">正在连接…</span>
+        <div class="actions">
+          <button id="save" disabled>立即保存</button>
+          <button id="copy" class="primary" disabled>复制全文</button>
+        </div>
+      </div>
+      <textarea id="text" aria-label="共享文本" spellcheck="false" autocomplete="off" disabled placeholder="把文字粘贴到这里…&#10;&#10;修改会自动保存，只保留最新内容。"></textarea>
+    </section>
+    <footer><span id="count">0 字符</span><span>自动保存 · 每 2 秒同步 · 最多 2 MiB · Ctrl / ⌘ + S 保存</span></footer>
+    <p class="notice">持有完整链接的人都可以查看和修改。多人同时编辑时，以最后保存为准。不保留历史版本。当前为 HTTP，请勿粘贴密码等敏感信息。</p>
+  </main>
+</body>
+</html>

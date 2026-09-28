@@ -1,0 +1,17 @@
+[Unit]
+Description=Shared online text clipboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/EunNote/clipboard
+ExecStart=%h/.local/node/bin/node %h/EunNote/clipboard/server.mjs
+Environment=PORT=6357
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

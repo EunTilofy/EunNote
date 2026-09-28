@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f8fb">
+    <title>数迹 · 多目标数字推理</title>
+    <link rel="stylesheet" href="/shuji/styles.css">
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+    <header class="topbar">
+      <div class="topbar-left">
+        <a class="text-button function-home hidden" id="functionHome" href="/">← 功能页</a>
+        <a class="brand" href="/shuji/" aria-label="数迹首页">
+          <span class="brand-mark"><i></i><i></i><i></i><i></i></span>
+          <span>数迹</span>
+        </a>
+      </div>
+      <div class="top-actions">
+        <button class="text-button theme-button" id="themeButton" aria-label="切换深色模式">☾ 深色</button>
+        <button class="text-button" id="helpButton">玩法</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="pair-claim panel hidden" id="pairClaimView">
+        <div class="eyebrow"><span></span> TWO PLAYERS · ONE TRAIL</div>
+        <h1>先认领你的<em>位置</em></h1>
+        <p class="hero-copy">左边和右边各属于一个人。认领后，你们可以在这里看到彼此的独自挑战和双人对战记录。</p>
+        <label class="field claim-name-field">
+          <span>你的名字</span>
+          <input id="claimNameInput" maxlength="16" placeholder="输入一个名字" autocomplete="nickname">
+        </label>
+        <div class="claim-options">
+          <button class="claim-option" data-claim-side="left">
+            <small>LEFT</small><strong id="claimLeftLabel">认领左边</strong><span id="claimLeftHint">还没有人认领</span>
+          </button>
+          <button class="claim-option" data-claim-side="right">
+            <small>RIGHT</small><strong id="claimRightLabel">认领右边</strong><span id="claimRightHint">还没有人认领</span>
+          </button>
+        </div>
+        <p class="claim-note">认领信息只保存在这个双人空间中。</p>
+      </section>
+
+      <div class="home-layout" id="homeView">
+        <aside class="history-panel panel hidden" id="leftHistoryPanel">
+          <div class="history-heading">
+            <span class="profile-avatar side-mark left" id="leftProfileAvatar">L</span>
+            <div><small>左边</small><strong id="leftHistoryName">等待认领</strong></div>
+            <span class="me-badge hidden" id="leftMeBadge">我</span>
+            <button class="profile-edit hidden" id="leftProfileButton" type="button">设置</button>
+          </div>
+          <div class="history-list" id="leftHistoryList"></div>
+        </aside>
+
+        <section class="hero panel" id="setupView">
+        <div class="eyebrow"><span></span> DIGIT TRAILS</div>
+        <p class="hero-copy">每次猜测都会同时照亮多条线索。独自破局，或邀请朋友进入同一房间实时竞速。</p>
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="solo">独自挑战</button>
+          <button class="mode-tab private-only hidden" data-mode="duel">直接对战<span class="duel-dot hidden" id="duelDot" aria-label="有新的对战邀请"></span></button>
+          <button class="mode-tab" data-mode="create">创建房间</button>
+          <button class="mode-tab" data-mode="join">加入房间</button>
+        </div>
+        <form id="startForm" class="setup-form">
+          <label class="field" id="identityField">
+            <span>玩家 ID <small>同一 IP 首次设置后固定</small></span>
+            <input id="nameInput" maxlength="16" value="玩家" autocomplete="nickname">
+          </label>
+          <div class="fixed-identity hidden" id="fixedIdentity">
+            <span>固定玩家 ID</span>
+            <strong id="fixedIdentityName"></strong>
+          </div>
+          <label class="field join-only hidden">
+            <span>房间代码</span>
+            <input id="codeInput" maxlength="6" placeholder="例如 8K2JXM" autocomplete="off">
+          </label>
+          <div class="config-fields config-only">
+            <label class="field">
+              <span>目标数量 <b id="targetValue">4</b></span>
+              <input id="targetInput" type="range" min="1" max="6" value="4">
+            </label>
+            <label class="field">
+              <span>数字长度 <b id="lengthValue">8</b></span>
+              <input id="lengthInput" type="range" min="3" max="10" value="8">
+            </label>
+            <label class="field">
+              <span>最大轮次 <b id="roundValue">13</b></span>
+              <input id="roundInput" type="range" min="4" max="30" value="13">
+            </label>
+          </div>
+          <div class="round-preview config-only">
+            <span>推荐轮次</span>
+            <strong id="roundPreview">13</strong>
+            <small>默认值按信息量与目标数计算，可自由调整</small>
+          </div>
+          <div class="start-actions">
+            <button class="primary-button" id="startButton" type="submit"><span>开始追迹</span><b>→</b></button>
+            <button class="duel-cancel hidden" id="duelCancelButton" type="button">放弃</button>
+          </div>
+        </form>
+        </section>
+
+        <aside class="history-panel panel hidden" id="rightHistoryPanel">
+          <div class="history-heading">
+            <span class="profile-avatar side-mark right" id="rightProfileAvatar">R</span>
+            <div><small>右边</small><strong id="rightHistoryName">等待认领</strong></div>
+            <span class="me-badge hidden" id="rightMeBadge">我</span>
+            <button class="profile-edit hidden" id="rightProfileButton" type="button">设置</button>
+          </div>
+          <div class="history-list" id="rightHistoryList"></div>
+        </aside>
+      </div>
+
+      <section class="game-shell hidden" id="gameView">
+        <div class="game-heading">
+          <div class="game-title">
+            <div class="eyebrow"><span></span> <b id="roomLabel">单人挑战</b></div>
+            <h2>追踪全部数字</h2>
+          </div>
+          <div class="game-heading-actions">
+            <div class="game-meta">
+              <div><small>轮次</small><strong><span id="roundNow">0</span>/<span id="roundLimit">10</span></strong></div>
+              <div><small>已找到</small><strong><span id="solvedNow">0</span>/<span id="targetCount">4</span></strong></div>
+              <div class="timer-meta"><small>用时</small><strong id="elapsedTime">00:00</strong></div>
+            </div>
+            <button class="back-button" id="backButton">← 返回主页面</button>
+          </div>
+        </div>
+
+        <div class="lobby panel hidden" id="lobbyView">
+          <div class="room-code-wrap">
+            <small>点击房间号复制到剪贴板</small>
+            <button id="copyCode" class="room-code" title="复制房间号">------</button>
+            <div class="direct-waiting hidden" id="directWaiting"><i></i><strong>等待另一边进入</strong></div>
+            <p>朋友加入后，由房主统一开始。最多支持 30 人。</p>
+          </div>
+          <div class="lobby-players">
+            <h3>已就位 <span id="lobbyCount">1</span></h3>
+            <div id="lobbyPlayerList"></div>
+          </div>
+          <button class="primary-button hidden" id="beginButton"><span>所有人准备好了</span><b>→</b></button>
+          <p class="waiting hidden" id="waitingText">等待房主开始<span class="dots">...</span></p>
+        </div>
+
+        <div id="playView" class="hidden">
+          <div class="status-strip" id="statusStrip"></div>
+          <div class="boards-viewport"><div class="boards" id="boards"></div></div>
+          <form class="guess-bar" id="guessForm">
+            <div class="guess-input-wrap">
+              <small>输入 <span id="guessLength">8</span> 位数字</small>
+              <input id="guessInput" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            </div>
+            <button class="guess-button" type="submit">提交猜测 <span>↵</span></button>
+          </form>
+        </div>
+
+        <div class="results panel hidden" id="resultsView">
+          <div class="result-kicker">TRAIL COMPLETE</div>
+          <h2 id="resultTitle">本局结束</h2>
+          <p id="resultCopy"></p>
+          <div class="result-tabs" id="resultTabs"></div>
+          <div class="boards-viewport result-boards"><div class="boards" id="resultBoards"></div></div>
+          <div class="answers" id="answers"></div>
+          <button class="primary-button" id="homeButton"><span>再来一局</span><b>↻</b></button>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast"></div>
+    <dialog class="profile-dialog" id="profileDialog">
+      <button class="dialog-close" data-profile-close>×</button>
+      <div class="eyebrow"><span></span> MAKE IT YOURS</div>
+      <h2>设置个人资料</h2>
+      <div class="avatar-editor">
+        <button class="avatar-picker" id="avatarPicker" type="button" aria-label="选择头像"></button>
+        <input id="avatarInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+        <div><strong>头像</strong><p>点击更换，建议使用方形图片</p><button class="remove-avatar" id="removeAvatarButton" type="button">移除头像</button></div>
+      </div>
+      <label class="field profile-name-field">
+        <span>你的名字</span>
+        <input id="profileNameInput" maxlength="16" autocomplete="nickname" placeholder="输入名字">
+      </label>
+      <button class="primary-button" id="saveProfileButton" type="button"><span>保存资料</span><b>✓</b></button>
+    </dialog>
+    <dialog class="history-dialog" id="historyDialog">
+      <button class="dialog-close" data-history-close>×</button>
+      <div class="eyebrow"><span></span> SAVED TRAIL</div>
+      <h2 id="historyDialogTitle">对局记录</h2>
+      <p class="history-dialog-meta" id="historyDialogMeta"></p>
+      <div class="history-dialog-actions">
+        <button class="primary-button" id="replayHistoryButton"><span>直接玩这一局</span><b>→</b></button>
+        <button class="secondary-button" id="viewStrategyButton">查看这局策略</button>
+      </div>
+      <div class="history-strategy hidden" id="historyStrategy">
+        <div class="boards-viewport"><div class="boards" id="historyBoards"></div></div>
+        <div class="answers" id="historyAnswers"></div>
+      </div>
+    </dialog>
+    <dialog id="infoDialog">
+      <button class="dialog-close" data-close>×</button>
+      <div id="dialogContent"></div>
+    </dialog>
+    <script src="/shuji/socket.io/socket.io.js"></script>
+    <script src="/shuji/app.js"></script>
+  </body>
+</html>

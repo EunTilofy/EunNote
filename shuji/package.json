@@ -1,0 +1,21 @@
+{
+  "name": "shuji",
+  "version": "1.0.0",
+  "private": true,
+  "description": "数迹：支持单人和实时多人竞赛的数字 Wordle 游戏",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
+  }
+}
