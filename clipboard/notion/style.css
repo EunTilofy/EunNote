@@ -46,8 +46,9 @@ button { color: inherit; }
 .brand { color: var(--ink); text-decoration: none; font-family: Georgia, serif; font-size: 32px; font-weight: 700; letter-spacing: -1.5px; }
 .brand span { color: var(--accent); }
 .brand-group { display: flex; align-items: center; gap: 16px; }
-.back-home { color: var(--muted); text-decoration: none; font-size: 12px; white-space: nowrap; }
-.back-home:hover { color: var(--accent); }
+.back-home { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(124, 121, 112, .24); border-radius: 11px; background: rgba(255, 255, 255, .32); color: var(--muted); padding: 7px 12px; text-decoration: none; font-size: 13px; font-weight: 650; line-height: 1; white-space: nowrap; box-shadow: 0 2px 8px rgba(65, 57, 43, .035); transition: color .18s, border-color .18s, background .18s, box-shadow .18s, transform .18s; }
+.back-home:hover { border-color: rgba(215, 101, 67, .35); background: rgba(255, 255, 255, .56); color: var(--accent); box-shadow: 0 4px 12px rgba(65, 57, 43, .07); transform: translateY(-1px); }
+.back-home:focus-visible { outline: 2px solid rgba(215, 101, 67, .32); outline-offset: 2px; }
 .header-right, .identity-switch { display: flex; align-items: center; gap: 16px; }
 .identity-switch { gap: 7px; color: var(--muted); font-size: 14px; }
 .identity-switch button { border: 0; border-bottom: 1px solid #aaa79e; background: transparent; padding: 3px 1px; cursor: pointer; font-weight: 650; }
@@ -515,6 +516,8 @@ body.gpu-detail-open { overflow: hidden; }
 .image-preview-nav[hidden] { display: none; }
 
 :root[data-theme="dark"] .site-header { background: rgba(25,26,24,.84); border-bottom-color: rgba(255,255,255,.1); }
+:root[data-theme="dark"] .back-home { border-color: rgba(255,255,255,.15); background: rgba(255,255,255,.045); }
+:root[data-theme="dark"] .back-home:hover { border-color: rgba(224,120,88,.4); background: rgba(255,255,255,.08); }
 :root[data-theme="dark"] .person-board,
 :root[data-theme="dark"] .composer,
 :root[data-theme="dark"] .gpu-machine { background: rgba(34,35,32,.86); }
@@ -541,6 +544,8 @@ body.gpu-detail-open { overflow: hidden; }
     --yellow: #3d3825; --title-blue: #8cb2cb; --title-plum: #ba91b5; --title-amber: #d6a75d; --shadow: 0 20px 60px rgba(0,0,0,.18);
   }
   :root:not([data-theme]) .site-header { background: rgba(25,26,24,.84); border-bottom-color: rgba(255,255,255,.1); }
+  :root:not([data-theme]) .back-home { border-color: rgba(255,255,255,.15); background: rgba(255,255,255,.045); }
+  :root:not([data-theme]) .back-home:hover { border-color: rgba(224,120,88,.4); background: rgba(255,255,255,.08); }
   :root:not([data-theme]) .person-board, :root:not([data-theme]) .composer, :root:not([data-theme]) .gpu-machine { background: rgba(34,35,32,.86); }
   :root:not([data-theme]) .note-area, :root:not([data-theme]) .todo-input { background: rgba(255,255,255,.025); }
   :root:not([data-theme]) .text-input { background: #292a27; }
