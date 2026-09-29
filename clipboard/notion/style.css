@@ -83,7 +83,6 @@ main { width: min(1220px, calc(100% - 40px)); margin: 0 auto; padding: 42px 0 80
 .intro-colors [data-title-color="blue"] { color: var(--title-blue); background: var(--title-blue); }
 .intro-colors [data-title-color="plum"] { color: var(--title-plum); background: var(--title-plum); }
 .intro-colors [data-title-color="amber"] { color: var(--title-amber); background: var(--title-amber); }
-.intro > p:last-child { margin: 10px 0 0; color: var(--muted); font-size: 14px; }
 
 .boards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
 .person-board { min-width: 0; display: flex; flex-direction: column; background: rgba(251, 250, 246, .82); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); overflow: hidden; }
