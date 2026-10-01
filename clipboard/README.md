@@ -43,6 +43,21 @@ size is 2 MiB in UTF-8. Clipboard copying falls back to selection-based copying
 on HTTP. Failed saves remain in the editor with an error and automatic retries;
 wait for the saved indicator before closing. There is no version history.
 
+## GPU reporting
+
+The Note GPU panel accepts authenticated reports at:
+
+```text
+POST /notion/api/gpu/report
+Authorization: Bearer GPU_MONITOR_TOKEN
+```
+
+The private token is generated in `data/gpu-monitor-token`. The repository's
+`gpu-tools/install.sh` configures a host or cluster, detects its nodes and GPUs,
+installs `ggpu` and `gpu-filler`, and enables periodic reporting. Filler
+processes are excluded from real occupancy, while raw utilization remains
+visible. Each GPU also retains the time when its latest idle period began.
+
 ## Installed service
 
 ```sh

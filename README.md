@@ -12,6 +12,7 @@ EunNote is the source tree for the services published on port 6357:
 ```text
 EunNote/
 ├── clipboard/       # launcher, clipboard, note, GPU ingestion API
+├── gpu-tools/       # GPU filler, tracker, ggpu, and installer
 ├── shuji/           # 数迹 server, client, and tests
 └── deploy/systemd/  # service unit templates used by this host
 ```
@@ -40,6 +41,10 @@ node --test app.test.mjs server.test.mjs notion.test.mjs
 
 The clipboard service has no third-party runtime dependencies. 数迹 uses the
 dependencies pinned in `shuji/package-lock.json`.
+
+GPU hosts can install the monitoring and cooperative filler commands with
+`gpu-tools/install.sh`. See `gpu-tools/README.md` for node discovery, reporting,
+`ggpu`, and `gpu-filler` usage.
 
 ## Production services
 

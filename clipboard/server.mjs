@@ -159,12 +159,19 @@ function gpuNumber(value, min, max, label, fallback = null) {
   if (!Number.isFinite(result) || result < min || result > max) throw bad(`${label}数值无效。`);
   return Math.round(result * 10) / 10;
 }
+function gpuIso(value, label) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string') throw bad(`${label}格式不正确。`);
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) throw bad(`${label}格式不正确。`);
+  return timestamp.toISOString();
+}
 function validateGpuState(value) {
   if (!value || !Array.isArray(value.machines) || value.machines.length > 100) throw new Error('Invalid GPU monitor state');
   for (const machine of value.machines) {
     if (!machine || typeof machine.name !== 'string' || typeof machine.firstSeenAt !== 'string' || typeof machine.updatedAt !== 'string' || !Array.isArray(machine.nodes)) throw new Error('Invalid GPU machine state');
     if (machine.nodes.some(node => !node || typeof node.name !== 'string' || !Array.isArray(node.gpus))) throw new Error('Invalid GPU node state');
-    if (machine.nodes.some(node => node.gpus.some(gpu => !gpu || !Number.isInteger(gpu.index) || typeof gpu.name !== 'string' || typeof gpu.uuid !== 'string' || typeof gpu.inUse !== 'boolean' || !Array.isArray(gpu.processes)))) throw new Error('Invalid GPU state');
+    if (machine.nodes.some(node => node.gpus.some(gpu => !gpu || !Number.isInteger(gpu.index) || typeof gpu.name !== 'string' || typeof gpu.uuid !== 'string' || typeof gpu.inUse !== 'boolean' || !Array.isArray(gpu.processes) || !(gpu.idleSince === undefined || gpu.idleSince === null || typeof gpu.idleSince === 'string') || !(gpu.fillerActive === undefined || typeof gpu.fillerActive === 'boolean') || !(gpu.fillerMemoryUsedMiB === undefined || typeof gpu.fillerMemoryUsedMiB === 'number')))) throw new Error('Invalid GPU state');
   }
 }
 function sanitizeGpuReport(value) {
@@ -194,24 +201,31 @@ function sanitizeGpuReport(value) {
           pid,
           user: gpuString(rawProcess.user, 64, '进程用户', '未知') || '未知',
           command: gpuString(rawProcess.command, 240, '程序名', '未知程序') || '未知程序',
+          cwd: gpuString(rawProcess.cwd, 300, '工作目录'),
           memoryUsedMiB: gpuNumber(rawProcess.memoryUsedMiB, 0, 10_000_000, '进程显存', null),
         };
       });
       const memoryUsedMiB = gpuNumber(rawGpu.memoryUsedMiB, 0, 10_000_000, '已用显存', 0);
       const memoryTotalMiB = gpuNumber(rawGpu.memoryTotalMiB, 0, 10_000_000, '总显存', 0);
       if (memoryTotalMiB && memoryUsedMiB > memoryTotalMiB * 1.05) throw bad(`${nodeName} GPU ${index} 的显存数据无效。`);
-      const inferredInUse = processes.length > 0 || memoryUsedMiB > 256;
+      const fillerActive = rawGpu.fillerActive === true;
+      const fillerMemoryUsedMiB = gpuNumber(rawGpu.fillerMemoryUsedMiB, 0, 10_000_000, 'Filler 显存', 0);
+      const inferredInUse = processes.length > 0 || Math.max(0, memoryUsedMiB - fillerMemoryUsedMiB) > 256;
+      const inUse = rawGpu.inUse === true || inferredInUse;
       return {
         index,
         uuid: gpuString(rawGpu.uuid, 96, 'GPU UUID'),
         name: gpuString(rawGpu.name, 100, 'GPU 型号', 'NVIDIA GPU') || 'NVIDIA GPU',
-        inUse: rawGpu.inUse === true || inferredInUse,
+        inUse,
+        idleSince: inUse ? null : gpuIso(rawGpu.idleSince, 'GPU 空闲时间'),
         utilizationPercent: gpuNumber(rawGpu.utilizationPercent, 0, 100, 'GPU 利用率', 0),
         memoryUsedMiB,
         memoryTotalMiB,
         temperatureC: gpuNumber(rawGpu.temperatureC, -50, 200, 'GPU 温度', null),
         powerDrawW: gpuNumber(rawGpu.powerDrawW, 0, 10_000, 'GPU 功耗', null),
         powerLimitW: gpuNumber(rawGpu.powerLimitW, 0, 10_000, 'GPU 功耗上限', null),
+        fillerActive,
+        fillerMemoryUsedMiB,
         processes,
       };
     });
@@ -228,6 +242,14 @@ function updateGpuMachine(report) {
   const sanitized = sanitizeGpuReport(report);
   const now = new Date().toISOString();
   const existing = gpuState.machines.find(machine => machine.name === sanitized.name);
+  for (const node of sanitized.nodes) {
+    const previousNode = existing?.nodes.find(item => item.name === node.name);
+    for (const gpu of node.gpus) {
+      if (gpu.inUse || gpu.idleSince) continue;
+      const previous = previousNode?.gpus.find(item => (gpu.uuid && item.uuid === gpu.uuid) || (!gpu.uuid && item.index === gpu.index));
+      gpu.idleSince = previous && !previous.inUse && previous.idleSince ? previous.idleSince : now;
+    }
+  }
   if (existing) {
     existing.nodes = sanitized.nodes;
     existing.updatedAt = now;

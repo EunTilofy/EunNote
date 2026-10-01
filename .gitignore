@@ -1,5 +1,7 @@
 # Runtime dependencies
 **/node_modules/
+**/__pycache__/
+*.py[cod]
 
 # Private runtime state and uploaded media
 clipboard/data/**

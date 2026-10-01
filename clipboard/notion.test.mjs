@@ -57,8 +57,8 @@ test('note supports two boards, profiles, todos, wall images and restart persist
       machine: 'lab-cluster',
       nodes: [
         { name: 'node-a', gpus: [
-          { index: 0, uuid: 'GPU-aaa', name: 'NVIDIA A100', utilizationPercent: 87, memoryUsedMiB: 30000, memoryTotalMiB: 40960, temperatureC: 67, powerDrawW: 242, powerLimitW: 300, processes: [{ pid: 1234, user: 'alice', command: 'python train.py', memoryUsedMiB: 29500 }] },
-          { index: 1, uuid: 'GPU-bbb', name: 'NVIDIA A100', utilizationPercent: 0, memoryUsedMiB: 2, memoryTotalMiB: 40960, temperatureC: 31, powerDrawW: 42, powerLimitW: 300, processes: [] },
+          { index: 0, uuid: 'GPU-aaa', name: 'NVIDIA A100', utilizationPercent: 87, memoryUsedMiB: 30000, memoryTotalMiB: 40960, temperatureC: 67, powerDrawW: 242, powerLimitW: 300, processes: [{ pid: 1234, user: 'alice', command: 'python train.py', cwd: '/work/experiment', memoryUsedMiB: 29500 }] },
+          { index: 1, uuid: 'GPU-bbb', name: 'NVIDIA A100', inUse: false, idleSince: '2026-01-02T03:04:05Z', utilizationPercent: 99, memoryUsedMiB: 12000, memoryTotalMiB: 40960, temperatureC: 61, powerDrawW: 220, powerLimitW: 300, fillerActive: true, fillerMemoryUsedMiB: 11800, processes: [] },
         ] },
         { name: 'node-b', gpus: [
           { index: 0, uuid: 'GPU-ccc', name: 'NVIDIA A100', inUse: false, utilizationPercent: 0, memoryUsedMiB: 0, memoryTotalMiB: 40960, temperatureC: 29, powerDrawW: 39, powerLimitW: 300, processes: [] },
@@ -75,6 +75,11 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     assert.equal(gpuMachines[0].online, true);
     assert.equal(gpuMachines[0].nodes[0].gpus[0].inUse, true);
     assert.equal(gpuMachines[0].nodes[0].gpus[0].processes[0].command, 'python train.py');
+    assert.equal(gpuMachines[0].nodes[0].gpus[0].processes[0].cwd, '/work/experiment');
+    assert.equal(gpuMachines[0].nodes[0].gpus[1].inUse, false);
+    assert.equal(gpuMachines[0].nodes[0].gpus[1].fillerActive, true);
+    assert.equal(gpuMachines[0].nodes[0].gpus[1].processes.length, 0);
+    assert.equal(gpuMachines[0].nodes[0].gpus[1].idleSince, '2026-01-02T03:04:05.000Z');
     await new Promise(resolve => setTimeout(resolve, 120));
     assert.equal((await snapshot()).gpuMachines[0].online, false);
     const deleteGpu = await fetch(`${base}/notion/api/gpu/machine`, {

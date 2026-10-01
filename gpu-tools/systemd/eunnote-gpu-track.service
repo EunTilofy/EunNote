@@ -1,0 +1,12 @@
+[Unit]
+Description=Collect and report GPU state to EunNote
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/gpu-track --once
+TimeoutStartSec=90
+
+[Install]
+WantedBy=default.target

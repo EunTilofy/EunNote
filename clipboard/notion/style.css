@@ -293,7 +293,9 @@ body.gpu-detail-open { overflow: hidden; }
 .gpu-detail-processes > p { margin: 0; font-size: 10px; }
 .gpu-detail-process-list { display: grid; gap: 7px; }
 .gpu-detail-process-row { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: baseline; gap: 12px; }
+.gpu-detail-process-command { min-width: 0; display: grid; gap: 2px; }
 .gpu-detail-process-row strong { min-width: 0; overflow-wrap: anywhere; color: var(--ink); font-size: 15px; line-height: 1.35; }
+.gpu-detail-process-command small { min-width: 0; overflow: hidden; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .gpu-detail-process-row span { color: var(--muted); font-size: 10px; white-space: nowrap; }
 .gpu-detail-empty { margin: 18px 4px; color: var(--muted); font-size: 12px; }
 
@@ -612,6 +614,7 @@ body.gpu-detail-open { overflow: hidden; }
   .gpu-detail-body { padding-right: 17px; padding-left: 17px; }
   .gpu-detail-process-row { grid-template-columns: 1fr; gap: 2px; }
   .gpu-detail-process-row span { white-space: normal; }
+  .gpu-detail-process-command small { white-space: normal; }
   .image-preview { padding: 56px 12px 76px; }
   .image-preview-nav { top: auto; bottom: 17px; transform: none; }
   .image-preview-nav.previous { left: calc(50% - 54px); }

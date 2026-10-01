@@ -1272,6 +1272,17 @@ function formatGpuMemory(value) {
   return `${Math.round(mib)} MB`;
 }
 
+function formatGpuIdleDuration(iso) {
+  if (!iso) return '';
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (seconds < 60) return '不到 1 分钟';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours} 小时 ${minutes % 60} 分`;
+  return `${Math.floor(hours / 24)} 天 ${hours % 24} 小时`;
+}
+
 function gpuMetric(label, value) {
   const item = document.createElement('span');
   const strong = document.createElement('strong');
@@ -1413,12 +1424,21 @@ function renderGpuProcessList(gpu) {
   for (const process of gpu.processes) {
     const row = document.createElement('div');
     row.className = 'gpu-detail-process-row';
+    const commandArea = document.createElement('div');
+    commandArea.className = 'gpu-detail-process-command';
     const command = document.createElement('strong');
     command.textContent = process.command;
     command.title = process.command;
+    commandArea.append(command);
+    if (process.cwd) {
+      const cwd = document.createElement('small');
+      cwd.textContent = process.cwd;
+      cwd.title = process.cwd;
+      commandArea.append(cwd);
+    }
     const meta = document.createElement('span');
     meta.textContent = `${process.user} · PID ${process.pid}${process.memoryUsedMiB === null ? '' : ` · ${formatGpuMemory(process.memoryUsedMiB)} 显存`}`;
-    row.append(command, meta);
+    row.append(commandArea, meta);
     list.append(row);
   }
   area.append(list);
@@ -1436,7 +1456,9 @@ function gpuDetailRow(gpu) {
   title.textContent = `GPU ${gpu.index}`;
   const state = document.createElement('span');
   state.className = 'gpu-detail-gpu-state';
-  state.textContent = gpu.inUse ? '占用中' : '空闲';
+  const idleDuration = formatGpuIdleDuration(gpu.idleSince);
+  state.textContent = gpu.inUse ? '占用中' : idleDuration ? `空闲 ${idleDuration}` : '空闲';
+  if (!gpu.inUse && gpu.idleSince) state.title = `从 ${new Date(gpu.idleSince).toLocaleString('zh-CN')} 开始空闲`;
   titleRow.append(title, state);
   const model = document.createElement('span');
   model.className = 'gpu-detail-gpu-model';
