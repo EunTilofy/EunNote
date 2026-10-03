@@ -51,6 +51,9 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     assert.match(notePage, /id="todoModalForm"/);
     assert.match(notePage, /id="gpuMachines"/);
     assert.match(notePage, /id="gpuDetailModal"/);
+    const noteScript = await (await fetch(`${base}/notion/app.js`)).text();
+    assert.match(noteScript, /gpu-machine-drag/);
+    assert.match(noteScript, /\/gpu\/order/);
     assert.equal((await fetch(`${base}/notion/api/state`)).status, 401);
     assert.equal((await state()).people.length, 2);
     const gpuPayload = {
@@ -80,6 +83,29 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     assert.equal(gpuMachines[0].nodes[0].gpus[1].fillerActive, true);
     assert.equal(gpuMachines[0].nodes[0].gpus[1].processes.length, 0);
     assert.equal(gpuMachines[0].nodes[0].gpus[1].idleSince, '2026-01-02T03:04:05.000Z');
+    const secondGpuPayload = { ...gpuPayload, machine: 'backup-cluster' };
+    assert.equal((await fetch(`${base}/notion/api/gpu/report`, {
+      method: 'POST', headers: { Authorization: `Bearer ${gpuKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify(secondGpuPayload),
+    })).status, 202);
+    assert.equal((await fetch(`${base}/notion/api/gpu/order`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machines: ['backup-cluster', 'lab-cluster'] }),
+    })).status, 401);
+    const reorderGpu = await fetch(`${base}/notion/api/gpu/order`, {
+      method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ machines: ['backup-cluster', 'lab-cluster'] }),
+    });
+    assert.equal(reorderGpu.status, 200);
+    assert.deepEqual((await reorderGpu.json()).gpuMachines.map(machine => machine.name), ['backup-cluster', 'lab-cluster']);
+    assert.equal((await fetch(`${base}/notion/api/gpu/order`, {
+      method: 'POST', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ machines: ['lab-cluster', 'lab-cluster'] }),
+    })).status, 400);
+    await stop();
+    await start();
+    assert.deepEqual((await snapshot()).gpuMachines.map(machine => machine.name), ['backup-cluster', 'lab-cluster']);
+    const deleteBackupGpu = await fetch(`${base}/notion/api/gpu/machine`, {
+      method: 'DELETE', headers: { ...auth(), 'Content-Type': 'application/json' }, body: JSON.stringify({ machine: 'backup-cluster' }),
+    });
+    assert.equal(deleteBackupGpu.status, 200);
+    assert.deepEqual((await snapshot()).gpuMachines.map(machine => machine.name), ['lab-cluster']);
     await new Promise(resolve => setTimeout(resolve, 120));
     assert.equal((await snapshot()).gpuMachines[0].online, false);
     const deleteGpu = await fetch(`${base}/notion/api/gpu/machine`, {

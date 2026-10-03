@@ -62,6 +62,9 @@ let gpuMachines = [];
 let openGpuMachineName = '';
 let gpuDetailCloseTimer;
 let renderedGpuDetailKey = '';
+let gpuDragState = null;
+let gpuOrderSaving = false;
+let deferredGpuMachines = null;
 let identity = localStorage.getItem('note-identity');
 let editingProfile;
 let addingTodoPerson;
@@ -1308,11 +1311,171 @@ function gpuStatusNode(machine, className = 'gpu-machine-status') {
   return status;
 }
 
+function gpuCardRects() {
+  return new Map([...gpuMachinesEl.querySelectorAll('.gpu-machine')].map(card => [card.dataset.machine, card.getBoundingClientRect()]));
+}
+
+function animateGpuCards(previousRects) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  for (const card of gpuMachinesEl.querySelectorAll('.gpu-machine')) {
+    const previous = previousRects.get(card.dataset.machine);
+    if (!previous) continue;
+    const current = card.getBoundingClientRect();
+    const x = previous.left - current.left;
+    const y = previous.top - current.top;
+    if (Math.abs(x) < 1 && Math.abs(y) < 1) continue;
+    card.animate([
+      { transform: `translate(${x}px, ${y}px)`, zIndex: 3 },
+      { transform: 'translate(0, 0)', zIndex: 3 },
+    ], { duration: 280, easing: 'cubic-bezier(.2,.78,.24,1)' });
+  }
+}
+
+function gpuMachinesWithFreshData(order, fresh) {
+  const byName = new Map(fresh.map(machine => [machine.name, machine]));
+  return order.map(machine => byName.get(machine.name) || machine).filter(Boolean);
+}
+
+async function moveGpuMachine(sourceName, targetName, position) {
+  if (gpuOrderSaving || sourceName === targetName) return;
+  const previous = [...gpuMachines];
+  const source = previous.find(machine => machine.name === sourceName);
+  if (!source || !previous.some(machine => machine.name === targetName)) return;
+  const next = previous.filter(machine => machine.name !== sourceName);
+  let targetIndex = next.findIndex(machine => machine.name === targetName);
+  if (position === 'after') targetIndex += 1;
+  next.splice(targetIndex, 0, source);
+  if (next.every((machine, index) => machine.name === previous[index]?.name)) return;
+
+  const rects = gpuCardRects();
+  gpuMachines = next;
+  gpuOrderSaving = true;
+  setStatus('正在保存顺序');
+  renderGpuMachines(true);
+  animateGpuCards(rects);
+  requestAnimationFrame(() => {
+    const moved = [...gpuMachinesEl.querySelectorAll('.gpu-machine')].find(card => card.dataset.machine === sourceName);
+    moved?.querySelector('.gpu-machine-drag')?.focus({ preventScroll: true });
+  });
+  try {
+    const result = await api('/gpu/order', { method: 'POST', body: JSON.stringify({ machines: next.map(machine => machine.name) }) });
+    const ordered = result.gpuMachines || next;
+    gpuMachines = gpuMachinesWithFreshData(ordered, deferredGpuMachines || ordered);
+    deferredGpuMachines = null;
+    setStatus('已同步', 'saved');
+  } catch (error) {
+    const fresh = deferredGpuMachines || previous;
+    gpuMachines = gpuMachinesWithFreshData(previous, fresh);
+    deferredGpuMachines = null;
+    renderGpuMachines(true);
+    toast(error.message);
+    setStatus('同步失败', 'error');
+  } finally {
+    gpuOrderSaving = false;
+  }
+}
+
+function clearGpuDropTarget() {
+  for (const card of gpuMachinesEl.querySelectorAll('[data-drop-position]')) delete card.dataset.dropPosition;
+}
+
+function beginGpuDrag(event, machine, card, handle) {
+  if (gpuOrderSaving || !event.isPrimary || event.button > 0) return;
+  event.preventDefault();
+  const bounds = card.getBoundingClientRect();
+  gpuDragState = {
+    sourceName: machine.name, pointerId: event.pointerId, card, handle,
+    startX: event.clientX, startY: event.clientY,
+    offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top,
+    width: bounds.width, active: false, targetName: '', position: '', ghost: null,
+  };
+  handle.setPointerCapture(event.pointerId);
+}
+
+function updateGpuDrag(event) {
+  const drag = gpuDragState;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) return;
+  if (!drag.active) {
+    drag.active = true;
+    drag.card.classList.add('drag-source');
+    gpuMachinesEl.classList.add('is-reordering');
+    document.body.classList.add('gpu-card-dragging');
+    drag.ghost = drag.card.cloneNode(true);
+    drag.ghost.className = 'gpu-machine gpu-drag-ghost';
+    drag.ghost.removeAttribute('data-drop-position');
+    drag.ghost.style.width = `${drag.width}px`;
+    document.body.append(drag.ghost);
+  }
+  event.preventDefault();
+  drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
+  drag.ghost.style.top = `${event.clientY - drag.offsetY}px`;
+
+  const target = document.elementsFromPoint(event.clientX, event.clientY)
+    .map(element => element.closest?.('.gpu-machine'))
+    .find(element => element && element !== drag.card && !element.classList.contains('gpu-drag-ghost') && gpuMachinesEl.contains(element));
+  clearGpuDropTarget();
+  if (!target) {
+    drag.targetName = '';
+    return;
+  }
+  const bounds = target.getBoundingClientRect();
+  const columns = getComputedStyle(gpuMachinesEl).gridTemplateColumns.split(/\s+/).filter(Boolean).length;
+  const position = columns > 1
+    ? (event.clientX > bounds.left + bounds.width / 2 ? 'after' : 'before')
+    : (event.clientY > bounds.top + bounds.height / 2 ? 'after' : 'before');
+  target.dataset.dropPosition = position;
+  drag.targetName = target.dataset.machine;
+  drag.position = position;
+}
+
+function finishGpuDrag(event) {
+  const drag = gpuDragState;
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const shouldMove = event.type !== 'pointercancel' && drag.active && drag.targetName;
+  const { sourceName, targetName, position } = drag;
+  drag.card.classList.remove('drag-source');
+  drag.ghost?.remove();
+  clearGpuDropTarget();
+  gpuMachinesEl.classList.remove('is-reordering');
+  document.body.classList.remove('gpu-card-dragging');
+  gpuDragState = null;
+  if (shouldMove) moveGpuMachine(sourceName, targetName, position);
+  else if (deferredGpuMachines) {
+    gpuMachines = deferredGpuMachines;
+    deferredGpuMachines = null;
+    renderGpuMachines(true);
+  }
+}
+
+function moveGpuMachineByKeyboard(event, machineName) {
+  if (!['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(event.key) || gpuOrderSaving) return;
+  const index = gpuMachines.findIndex(machine => machine.name === machineName);
+  const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+  const targetIndex = index + (backwards ? -1 : 1);
+  if (index < 0 || targetIndex < 0 || targetIndex >= gpuMachines.length) return;
+  event.preventDefault();
+  moveGpuMachine(machineName, gpuMachines[targetIndex].name, backwards ? 'before' : 'after');
+}
+
 function gpuCard(machine) {
   const summary = gpuMachineSummary(machine);
   const card = document.createElement('article');
   card.className = `gpu-machine${machine.online ? '' : ' offline'}`;
   card.dataset.machine = machine.name;
+
+  const dragHandle = document.createElement('button');
+  dragHandle.type = 'button';
+  dragHandle.className = 'gpu-machine-drag';
+  dragHandle.title = '拖拽调整顺序';
+  dragHandle.setAttribute('aria-label', `拖拽调整 ${machine.name} 的顺序，方向键也可以移动`);
+  dragHandle.innerHTML = '<i></i><i></i><i></i><i></i><i></i><i></i>';
+  dragHandle.addEventListener('pointerdown', event => beginGpuDrag(event, machine, card, dragHandle));
+  dragHandle.addEventListener('pointermove', updateGpuDrag);
+  dragHandle.addEventListener('pointerup', finishGpuDrag);
+  dragHandle.addEventListener('pointercancel', finishGpuDrag);
+  dragHandle.addEventListener('keydown', event => moveGpuMachineByKeyboard(event, machine.name));
+  dragHandle.addEventListener('click', event => event.preventDefault());
 
   const toggle = document.createElement('button');
   toggle.type = 'button';
@@ -1373,7 +1536,7 @@ function gpuCard(machine) {
     }
   });
 
-  card.append(toggle, remove);
+  card.append(toggle, dragHandle, remove);
   return card;
 }
 
@@ -1567,7 +1730,8 @@ function renderGpuDetail(force = false) {
   body.scrollTop = previousScrollTop;
   renderedGpuDetailKey = detailKey;
 }
-function renderGpuMachines() {
+function renderGpuMachines(force = false) {
+  if (!force && (gpuDragState || gpuOrderSaving)) return;
   gpuMachinesEl.replaceChildren();
   const onlineCount = gpuMachines.filter(machine => machine.online).length;
   const totalCards = gpuMachines.reduce((total, machine) => total + gpuMachineSummary(machine).gpus.length, 0);
@@ -2066,7 +2230,9 @@ async function refresh() {
   try {
     const result = await api('/state');
     presence = result.presence || presence;
-    gpuMachines = result.gpuMachines || [];
+    const latestGpuMachines = result.gpuMachines || [];
+    if (gpuDragState || gpuOrderSaving) deferredGpuMachines = latestGpuMachines;
+    else gpuMachines = latestGpuMachines;
     if (!state || result.state.revision !== state.revision) {
       state = result.state;
       render();

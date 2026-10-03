@@ -169,7 +169,7 @@ function gpuIso(value, label) {
 function validateGpuState(value) {
   if (!value || !Array.isArray(value.machines) || value.machines.length > 100) throw new Error('Invalid GPU monitor state');
   for (const machine of value.machines) {
-    if (!machine || typeof machine.name !== 'string' || typeof machine.firstSeenAt !== 'string' || typeof machine.updatedAt !== 'string' || !Array.isArray(machine.nodes)) throw new Error('Invalid GPU machine state');
+    if (!machine || typeof machine.name !== 'string' || typeof machine.firstSeenAt !== 'string' || typeof machine.updatedAt !== 'string' || !(machine.order === undefined || Number.isSafeInteger(machine.order) && machine.order >= 0) || !Array.isArray(machine.nodes)) throw new Error('Invalid GPU machine state');
     if (machine.nodes.some(node => !node || typeof node.name !== 'string' || !Array.isArray(node.gpus))) throw new Error('Invalid GPU node state');
     if (machine.nodes.some(node => node.gpus.some(gpu => !gpu || !Number.isInteger(gpu.index) || typeof gpu.name !== 'string' || typeof gpu.uuid !== 'string' || typeof gpu.inUse !== 'boolean' || !Array.isArray(gpu.processes) || !(gpu.idleSince === undefined || gpu.idleSince === null || typeof gpu.idleSince === 'string') || !(gpu.fillerActive === undefined || typeof gpu.fillerActive === 'boolean') || !(gpu.fillerMemoryUsedMiB === undefined || typeof gpu.fillerMemoryUsedMiB === 'number')))) throw new Error('Invalid GPU state');
   }
@@ -255,7 +255,8 @@ function updateGpuMachine(report) {
     existing.updatedAt = now;
   } else {
     if (gpuState.machines.length >= 100) throw bad('监控机器数量已达到上限。');
-    gpuState.machines.push({ ...sanitized, firstSeenAt: now, updatedAt: now });
+    const order = gpuState.machines.reduce((maximum, machine, index) => Math.max(maximum, Number.isSafeInteger(machine.order) ? machine.order : index), -1) + 1;
+    gpuState.machines.push({ ...sanitized, order, firstSeenAt: now, updatedAt: now });
   }
   saveGpuState();
   const gpuCount = sanitized.nodes.reduce((total, node) => total + node.gpus.length, 0);
@@ -264,8 +265,22 @@ function updateGpuMachine(report) {
 function gpuSnapshot() {
   const now = Date.now();
   return gpuState.machines
-    .map(machine => ({ ...machine, online: now - new Date(machine.updatedAt).getTime() <= gpuOfflineTimeout }))
-    .sort((left, right) => Number(right.online) - Number(left.online) || left.name.localeCompare(right.name, 'zh-CN'));
+    .map((machine, index) => ({ ...machine, order: Number.isSafeInteger(machine.order) ? machine.order : index, online: now - new Date(machine.updatedAt).getTime() <= gpuOfflineTimeout }))
+    .sort((left, right) => left.order - right.order || left.name.localeCompare(right.name, 'zh-CN'));
+}
+function reorderGpuMachines(namesValue) {
+  if (!Array.isArray(namesValue) || namesValue.length > 100 || namesValue.some(name => typeof name !== 'string')) throw bad('GPU 机器顺序格式不正确。');
+  const names = namesValue.map(name => cleanText(name, 80, '机器名'));
+  if (new Set(names).size !== names.length) throw bad('GPU 机器顺序中有重复项目。');
+  const byName = new Map(gpuState.machines.map(machine => [machine.name, machine]));
+  if (names.some(name => !byName.has(name))) throw bad('GPU 机器顺序中包含不存在的机器。');
+  const ordered = names.map(name => byName.get(name));
+  for (const machine of gpuSnapshot()) {
+    if (!names.includes(machine.name)) ordered.push(byName.get(machine.name));
+  }
+  ordered.forEach((machine, order) => { machine.order = order; });
+  gpuState.machines = ordered;
+  saveGpuState();
 }
 function deleteGpuMachine(nameValue) {
   const name = cleanText(nameValue, 80, '机器名');
@@ -612,6 +627,14 @@ const server = http.createServer(async (req, res) => {
       if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw bad('请提交 JSON。', 415);
       const body = JSON.parse((await readBody(req, jsonLimit)).toString('utf8'));
       deleteGpuMachine(body?.machine);
+      return reply(res, 200, { gpuMachines: gpuSnapshot() });
+    }
+    if (path === '/notion/api/gpu/order' && req.method === 'POST') {
+      if (!authorized(req)) return reply(res, 401, { error: '访问密钥无效，请使用完整链接。' });
+      if (req.headers.origin && req.headers.origin !== `http://${req.headers.host}` && req.headers.origin !== `https://${req.headers.host}`) throw bad('不允许跨站排序。', 403);
+      if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw bad('请提交 JSON。', 415);
+      const body = JSON.parse((await readBody(req, jsonLimit)).toString('utf8'));
+      reorderGpuMachines(body?.machines);
       return reply(res, 200, { gpuMachines: gpuSnapshot() });
     }
     if (path === '/notion/api/presence' && req.method === 'POST') {
