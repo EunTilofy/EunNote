@@ -52,7 +52,8 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     assert.match(notePage, /id="gpuMachines"/);
     assert.match(notePage, /id="gpuDetailModal"/);
     const noteScript = await (await fetch(`${base}/notion/app.js`)).text();
-    assert.match(noteScript, /gpu-machine-drag/);
+    assert.match(noteScript, /card\.addEventListener\('pointerdown'/);
+    assert.doesNotMatch(noteScript, /className = 'gpu-machine-drag'/);
     assert.match(noteScript, /\/gpu\/order/);
     assert.equal((await fetch(`${base}/notion/api/state`)).status, 401);
     assert.equal((await state()).people.length, 2);

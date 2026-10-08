@@ -1355,7 +1355,7 @@ async function moveGpuMachine(sourceName, targetName, position) {
   animateGpuCards(rects);
   requestAnimationFrame(() => {
     const moved = [...gpuMachinesEl.querySelectorAll('.gpu-machine')].find(card => card.dataset.machine === sourceName);
-    moved?.querySelector('.gpu-machine-drag')?.focus({ preventScroll: true });
+    moved?.querySelector('.gpu-machine-toggle')?.focus({ preventScroll: true });
   });
   try {
     const result = await api('/gpu/order', { method: 'POST', body: JSON.stringify({ machines: next.map(machine => machine.name) }) });
@@ -1379,33 +1379,54 @@ function clearGpuDropTarget() {
   for (const card of gpuMachinesEl.querySelectorAll('[data-drop-position]')) delete card.dataset.dropPosition;
 }
 
-function beginGpuDrag(event, machine, card, handle) {
-  if (gpuOrderSaving || !event.isPrimary || event.button > 0) return;
-  event.preventDefault();
+function activateGpuDrag(drag) {
+  if (!drag || drag.active || gpuDragState !== drag) return;
+  drag.active = true;
+  drag.card.classList.add('drag-source');
+  gpuMachinesEl.classList.add('is-reordering');
+  document.body.classList.add('gpu-card-dragging');
+  drag.ghost = drag.card.cloneNode(true);
+  drag.ghost.className = 'gpu-machine gpu-drag-ghost';
+  drag.ghost.removeAttribute('data-drop-position');
+  drag.ghost.style.width = `${drag.width}px`;
+  drag.ghost.style.left = `${drag.startX - drag.offsetX}px`;
+  drag.ghost.style.top = `${drag.startY - drag.offsetY}px`;
+  document.body.append(drag.ghost);
+  try { drag.card.setPointerCapture(drag.pointerId); } catch {}
+  if (drag.pointerType === 'touch') navigator.vibrate?.(12);
+}
+
+function beginGpuDrag(event, machine, card) {
+  if (gpuOrderSaving || !event.isPrimary || event.button > 0 || event.target.closest('.gpu-machine-delete')) return;
   const bounds = card.getBoundingClientRect();
-  gpuDragState = {
-    sourceName: machine.name, pointerId: event.pointerId, card, handle,
+  const drag = {
+    sourceName: machine.name, pointerId: event.pointerId, pointerType: event.pointerType, card,
     startX: event.clientX, startY: event.clientY,
     offsetX: event.clientX - bounds.left, offsetY: event.clientY - bounds.top,
-    width: bounds.width, active: false, targetName: '', position: '', ghost: null,
+    width: bounds.width, active: false, targetName: '', position: '', ghost: null, holdTimer: null,
   };
-  handle.setPointerCapture(event.pointerId);
+  gpuDragState = drag;
+  if (event.pointerType === 'touch') {
+    drag.holdTimer = setTimeout(() => activateGpuDrag(drag), 280);
+  } else {
+    try { card.setPointerCapture(event.pointerId); } catch {}
+  }
 }
 
 function updateGpuDrag(event) {
   const drag = gpuDragState;
   if (!drag || event.pointerId !== drag.pointerId) return;
-  if (!drag.active && Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 5) return;
+  const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
   if (!drag.active) {
-    drag.active = true;
-    drag.card.classList.add('drag-source');
-    gpuMachinesEl.classList.add('is-reordering');
-    document.body.classList.add('gpu-card-dragging');
-    drag.ghost = drag.card.cloneNode(true);
-    drag.ghost.className = 'gpu-machine gpu-drag-ghost';
-    drag.ghost.removeAttribute('data-drop-position');
-    drag.ghost.style.width = `${drag.width}px`;
-    document.body.append(drag.ghost);
+    if (drag.pointerType === 'touch') {
+      if (distance > 8) {
+        clearTimeout(drag.holdTimer);
+        gpuDragState = null;
+      }
+      return;
+    }
+    if (distance < 5) return;
+    activateGpuDrag(drag);
   }
   event.preventDefault();
   drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
@@ -1432,8 +1453,13 @@ function updateGpuDrag(event) {
 function finishGpuDrag(event) {
   const drag = gpuDragState;
   if (!drag || event.pointerId !== drag.pointerId) return;
+  clearTimeout(drag.holdTimer);
   const shouldMove = event.type !== 'pointercancel' && drag.active && drag.targetName;
   const { sourceName, targetName, position } = drag;
+  if (drag.active) {
+    drag.card.dataset.justDragged = 'true';
+    setTimeout(() => delete drag.card.dataset.justDragged, 0);
+  }
   drag.card.classList.remove('drag-source');
   drag.ghost?.remove();
   clearGpuDropTarget();
@@ -1449,7 +1475,7 @@ function finishGpuDrag(event) {
 }
 
 function moveGpuMachineByKeyboard(event, machineName) {
-  if (!['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(event.key) || gpuOrderSaving) return;
+  if (!event.altKey || !['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(event.key) || gpuOrderSaving) return;
   const index = gpuMachines.findIndex(machine => machine.name === machineName);
   const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
   const targetIndex = index + (backwards ? -1 : 1);
@@ -1463,26 +1489,25 @@ function gpuCard(machine) {
   const card = document.createElement('article');
   card.className = `gpu-machine${machine.online ? '' : ' offline'}`;
   card.dataset.machine = machine.name;
-
-  const dragHandle = document.createElement('button');
-  dragHandle.type = 'button';
-  dragHandle.className = 'gpu-machine-drag';
-  dragHandle.title = '拖拽调整顺序';
-  dragHandle.setAttribute('aria-label', `拖拽调整 ${machine.name} 的顺序，方向键也可以移动`);
-  dragHandle.innerHTML = '<i></i><i></i><i></i><i></i><i></i><i></i>';
-  dragHandle.addEventListener('pointerdown', event => beginGpuDrag(event, machine, card, dragHandle));
-  dragHandle.addEventListener('pointermove', updateGpuDrag);
-  dragHandle.addEventListener('pointerup', finishGpuDrag);
-  dragHandle.addEventListener('pointercancel', finishGpuDrag);
-  dragHandle.addEventListener('keydown', event => moveGpuMachineByKeyboard(event, machine.name));
-  dragHandle.addEventListener('click', event => event.preventDefault());
+  card.title = '拖动卡片调整顺序，点击查看详情';
+  card.addEventListener('pointerdown', event => beginGpuDrag(event, machine, card));
+  card.addEventListener('pointermove', updateGpuDrag);
+  card.addEventListener('pointerup', finishGpuDrag);
+  card.addEventListener('pointercancel', finishGpuDrag);
+  card.addEventListener('touchmove', event => {
+    if (gpuDragState?.card === card && gpuDragState.active) event.preventDefault();
+  }, { passive: false });
 
   const toggle = document.createElement('button');
   toggle.type = 'button';
   toggle.className = 'gpu-machine-toggle';
   toggle.setAttribute('aria-haspopup', 'dialog');
-  toggle.setAttribute('aria-label', `放大查看 ${machine.name} 的 GPU 详情`);
-  toggle.addEventListener('click', () => openGpuDetails(machine.name));
+  toggle.setAttribute('aria-label', `查看 ${machine.name} 的 GPU 详情；按住卡片可拖动，Alt 加方向键可调整顺序`);
+  toggle.addEventListener('click', event => {
+    if (card.dataset.justDragged) return event.preventDefault();
+    openGpuDetails(machine.name);
+  });
+  toggle.addEventListener('keydown', event => moveGpuMachineByKeyboard(event, machine.name));
 
   const titleRow = document.createElement('span');
   titleRow.className = 'gpu-machine-title-row';
@@ -1536,7 +1561,7 @@ function gpuCard(machine) {
     }
   });
 
-  card.append(toggle, dragHandle, remove);
+  card.append(toggle, remove);
   return card;
 }
 
