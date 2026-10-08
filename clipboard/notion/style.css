@@ -208,7 +208,7 @@ main { width: min(1220px, calc(100% - 40px)); margin: 0 auto; padding: 42px 0 80
 .gpu-empty { grid-column: 1 / -1; display: grid; place-items: center; gap: 5px; min-height: 118px; border: 1px dashed var(--line); border-radius: 16px; color: var(--muted); text-align: center; }
 .gpu-empty strong { color: var(--ink); font-family: Georgia, "Noto Serif SC", serif; font-size: 16px; font-weight: 500; }
 .gpu-empty span { font-size: 12px; }
-.gpu-machine { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: rgba(251,250,246,.78); box-shadow: 0 10px 32px rgba(65,57,43,.055); cursor: grab; touch-action: pan-y; transition: border-color .2s, box-shadow .2s, opacity .2s, transform .2s; }
+.gpu-machine { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: rgba(251,250,246,.78); box-shadow: 0 10px 32px rgba(65,57,43,.055); cursor: pointer; touch-action: pan-y; user-select: none; -webkit-touch-callout: none; transition: border-color .2s, box-shadow .2s, opacity .2s, transform .2s; }
 .gpu-machine:hover { border-color: rgba(113,134,114,.42); box-shadow: 0 15px 40px rgba(65,57,43,.09); transform: translateY(-2px); }
 .gpu-machines.is-reordering .gpu-machine { transition: border-color .16s, box-shadow .16s, opacity .16s, transform .16s; }
 .gpu-machines.is-reordering .gpu-machine.drag-source { border-style: dashed; opacity: .2; box-shadow: none; transform: scale(.975); }
@@ -217,8 +217,7 @@ main { width: min(1220px, calc(100% - 40px)); margin: 0 auto; padding: 42px 0 80
 .gpu-machine[data-drop-position="before"]::after { left: 4px; }
 .gpu-machine[data-drop-position="after"]::after { right: 4px; }
 .gpu-machine.offline { background: rgba(160,157,148,.055); opacity: .74; }
-.gpu-machine-toggle { width: 100%; display: grid; gap: 12px; border: 0; background: transparent; padding: 15px 16px 13px; color: inherit; cursor: grab; text-align: left; }
-.gpu-machine-toggle:active { cursor: grabbing; }
+.gpu-machine-toggle { width: 100%; display: grid; gap: 12px; border: 0; background: transparent; padding: 15px 16px 13px; color: inherit; cursor: pointer; text-align: left; }
 .gpu-machine-toggle:hover { background: rgba(120,117,108,.035); }
 .gpu-machine-title-row { min-width: 0; display: flex; align-items: center; gap: 8px; padding-right: 23px; }
 .gpu-machine-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: Georgia, "Noto Serif SC", serif; font-size: 18px; white-space: nowrap; }
@@ -244,6 +243,7 @@ main { width: min(1220px, calc(100% - 40px)); margin: 0 auto; padding: 42px 0 80
 .gpu-machine-delete:hover { background: rgba(215,101,67,.1); color: var(--accent); }
 .gpu-machine-delete:disabled { opacity: .3; cursor: wait; }
 .gpu-card-dragging { cursor: grabbing; user-select: none; }
+.gpu-card-dragging .gpu-machine, .gpu-card-dragging .gpu-machine-toggle { cursor: grabbing; }
 .gpu-drag-ghost { position: fixed; z-index: 120; margin: 0; pointer-events: none; opacity: .94; box-shadow: 0 24px 65px rgba(38,31,23,.24); transform: rotate(1deg) scale(1.018); transition: none; }
 .gpu-drag-ghost .gpu-machine-delete { display: none; }
 

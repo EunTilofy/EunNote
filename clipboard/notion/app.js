@@ -1397,7 +1397,8 @@ function activateGpuDrag(drag) {
 }
 
 function beginGpuDrag(event, machine, card) {
-  if (gpuOrderSaving || !event.isPrimary || event.button > 0 || event.target.closest('.gpu-machine-delete')) return;
+  if (gpuDragState || gpuOrderSaving || !event.isPrimary || event.button > 0 || event.target.closest('.gpu-machine-delete')) return;
+  delete card.dataset.justDragged;
   const bounds = card.getBoundingClientRect();
   const drag = {
     sourceName: machine.name, pointerId: event.pointerId, pointerType: event.pointerType, card,
@@ -1406,11 +1407,8 @@ function beginGpuDrag(event, machine, card) {
     width: bounds.width, active: false, targetName: '', position: '', ghost: null, holdTimer: null,
   };
   gpuDragState = drag;
-  if (event.pointerType === 'touch') {
-    drag.holdTimer = setTimeout(() => activateGpuDrag(drag), 280);
-  } else {
-    try { card.setPointerCapture(event.pointerId); } catch {}
-  }
+  // Capture only after a deliberate hold, so a normal click reaches its button.
+  drag.holdTimer = setTimeout(() => activateGpuDrag(drag), 300);
 }
 
 function updateGpuDrag(event) {
@@ -1418,15 +1416,9 @@ function updateGpuDrag(event) {
   if (!drag || event.pointerId !== drag.pointerId) return;
   const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
   if (!drag.active) {
-    if (drag.pointerType === 'touch') {
-      if (distance > 8) {
-        clearTimeout(drag.holdTimer);
-        gpuDragState = null;
-      }
-      return;
-    }
-    if (distance < 5) return;
-    activateGpuDrag(drag);
+    // Moving before the hold finishes is ordinary scrolling or pointer movement.
+    if (distance > 8) clearTimeout(drag.holdTimer);
+    return;
   }
   event.preventDefault();
   drag.ghost.style.left = `${event.clientX - drag.offsetX}px`;
@@ -1458,7 +1450,6 @@ function finishGpuDrag(event) {
   const { sourceName, targetName, position } = drag;
   if (drag.active) {
     drag.card.dataset.justDragged = 'true';
-    setTimeout(() => delete drag.card.dataset.justDragged, 0);
   }
   drag.card.classList.remove('drag-source');
   drag.ghost?.remove();
@@ -1466,12 +1457,16 @@ function finishGpuDrag(event) {
   gpuMachinesEl.classList.remove('is-reordering');
   document.body.classList.remove('gpu-card-dragging');
   gpuDragState = null;
-  if (shouldMove) moveGpuMachine(sourceName, targetName, position);
-  else if (deferredGpuMachines) {
-    gpuMachines = deferredGpuMachines;
-    deferredGpuMachines = null;
-    renderGpuMachines(true);
-  }
+  // Let the following click finish before a reorder or poll replaces its target.
+  setTimeout(() => {
+    if (gpuDragState || gpuOrderSaving) return;
+    if (shouldMove) moveGpuMachine(sourceName, targetName, position);
+    else if (deferredGpuMachines) {
+      gpuMachines = deferredGpuMachines;
+      deferredGpuMachines = null;
+      renderGpuMachines(true);
+    }
+  }, 0);
 }
 
 function moveGpuMachineByKeyboard(event, machineName) {
@@ -1489,11 +1484,17 @@ function gpuCard(machine) {
   const card = document.createElement('article');
   card.className = `gpu-machine${machine.online ? '' : ' offline'}`;
   card.dataset.machine = machine.name;
-  card.title = '拖动卡片调整顺序，点击查看详情';
+  card.title = '点击查看详情，按住后拖动调整顺序';
   card.addEventListener('pointerdown', event => beginGpuDrag(event, machine, card));
-  card.addEventListener('pointermove', updateGpuDrag);
-  card.addEventListener('pointerup', finishGpuDrag);
-  card.addEventListener('pointercancel', finishGpuDrag);
+  card.addEventListener('click', event => {
+    if (event.target.closest('.gpu-machine-delete')) return;
+    // Pointer capture targets the card on drag release; keyboard clicks still work.
+    if (event.detail && (card.dataset.justDragged || gpuDragState?.active)) return event.preventDefault();
+    openGpuDetails(machine.name);
+  });
+  card.addEventListener('contextmenu', event => {
+    if (gpuDragState?.card === card) event.preventDefault();
+  });
   card.addEventListener('touchmove', event => {
     if (gpuDragState?.card === card && gpuDragState.active) event.preventDefault();
   }, { passive: false });
@@ -1503,10 +1504,6 @@ function gpuCard(machine) {
   toggle.className = 'gpu-machine-toggle';
   toggle.setAttribute('aria-haspopup', 'dialog');
   toggle.setAttribute('aria-label', `查看 ${machine.name} 的 GPU 详情；按住卡片可拖动，Alt 加方向键可调整顺序`);
-  toggle.addEventListener('click', event => {
-    if (card.dataset.justDragged) return event.preventDefault();
-    openGpuDetails(machine.name);
-  });
   toggle.addEventListener('keydown', event => moveGpuMachineByKeyboard(event, machine.name));
 
   const titleRow = document.createElement('span');
@@ -2221,6 +2218,9 @@ imagePreviewNext.addEventListener('click', () => moveImagePreview(1));
 gpuDetailModal.addEventListener('click', event => {
   if (event.target.closest('[data-close-gpu-detail]')) closeGpuDetails();
 });
+document.addEventListener('pointermove', updateGpuDrag);
+document.addEventListener('pointerup', finishGpuDrag);
+document.addEventListener('pointercancel', finishGpuDrag);
 document.addEventListener('keydown', event => {
   if (!imagePreview.hidden) {
     if (event.key === 'ArrowLeft') moveImagePreview(-1);
