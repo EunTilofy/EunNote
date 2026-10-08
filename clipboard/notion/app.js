@@ -300,20 +300,20 @@ function cancelFocusEdits(personId, focusId) {
   localValues.delete(key);
 }
 
-function beginFocusEdit(personId, focusId, titleEl, timeEl) {
+function beginFocusEdit(personId, focusId, titleEl) {
   const key = `${personId}:focus:${focusId}`;
   clearTimeout(timers.get(key));
   timers.delete(key);
-  if (!localValues.has(key)) localValues.set(key, { title: titleEl.value, endsAt: timeEl.value });
+  if (!localValues.has(key)) localValues.set(key, { title: titleEl.value });
 }
 
-function updateFocusDraft(personId, focusId, titleEl, timeEl) {
+function updateFocusDraft(personId, focusId, titleEl) {
   const key = `${personId}:focus:${focusId}`;
-  localValues.set(key, { title: titleEl.value, endsAt: timeEl.value });
+  localValues.set(key, { title: titleEl.value });
   setStatus('有修改');
 }
 
-async function commitFocusEdit(personId, focusId, titleEl, timeEl) {
+async function commitFocusEdit(personId, focusId, titleEl) {
   const key = `${personId}:focus:${focusId}`;
   const person = state.people.find(item => item.id === personId);
   const focus = person?.focuses.find(item => item.id === focusId);
@@ -323,16 +323,15 @@ async function commitFocusEdit(personId, focusId, titleEl, timeEl) {
     titleEl.value = focus.title;
     toast('事项名称不能为空');
   }
-  const draft = { title: title || focus.title, endsAt: timeEl.value };
+  const draft = { title: title || focus.title };
   localValues.set(key, draft);
-  const endsAt = draft.endsAt ? new Date(draft.endsAt).toISOString() : '';
-  if (draft.title === focus.title && endsAt === (focus.endsAt || '')) {
+  if (draft.title === focus.title) {
     if (localValues.get(key) === draft) localValues.delete(key);
     render();
     return;
   }
   try {
-    await queueAction({ type: 'updateFocus', personId, focusId, title: draft.title, endsAt }, true);
+    await queueAction({ type: 'updateFocus', personId, focusId, title: draft.title, endsAt: focus.endsAt || '' }, true);
     if (localValues.get(key) === draft) {
       localValues.delete(key);
       render();
@@ -340,12 +339,12 @@ async function commitFocusEdit(personId, focusId, titleEl, timeEl) {
   } catch {}
 }
 
-function scheduleFocusCommit(personId, focusId, titleEl, timeEl) {
+function scheduleFocusCommit(personId, focusId, titleEl) {
   const key = `${personId}:focus:${focusId}`;
   clearTimeout(timers.get(key));
   timers.set(key, setTimeout(() => {
     timers.delete(key);
-    commitFocusEdit(personId, focusId, titleEl, timeEl);
+    commitFocusEdit(personId, focusId, titleEl);
   }, 220));
 }
 
@@ -432,7 +431,8 @@ async function flushFocusEdits(personId) {
     clearTimeout(timers.get(key));
     timers.delete(key);
     const focusId = key.slice(prefix.length);
-    await queueAction({ type: 'updateFocus', personId, focusId, title: value.title, endsAt: value.endsAt ? new Date(value.endsAt).toISOString() : '' }, true);
+    const focus = state.people.find(person => person.id === personId)?.focuses.find(item => item.id === focusId);
+    if (focus) await queueAction({ type: 'updateFocus', personId, focusId, title: value.title, endsAt: focus.endsAt || '' }, true);
     localValues.delete(key);
   }
   render();
@@ -518,8 +518,9 @@ function renderFocuses(list, person) {
       delete row.dataset.dropPosition;
       if (sourceId && sourceId !== focus.id) queueAction({ type: 'moveFocus', personId: person.id, focusId: sourceId, targetId: focus.id, position });
     });
-    const title = document.createElement('input');
+    const title = document.createElement('textarea');
     title.className = 'focus-item-title';
+    title.rows = 3;
     title.maxLength = 100;
     title.value = focus.title;
     title.setAttribute('aria-label', '正在做的事情');
@@ -528,14 +529,7 @@ function renderFocuses(list, person) {
     const elapsed = document.createElement('span');
     elapsed.className = 'focus-elapsed';
     elapsed.textContent = focusTiming(focus);
-    const timeLabel = document.createElement('label');
-    timeLabel.className = 'focus-time';
-    timeLabel.append(document.createTextNode('预计 '));
-    const time = document.createElement('input');
-    time.type = 'datetime-local';
-    time.value = toLocalInput(focus.endsAt);
-    timeLabel.append(time);
-    details.append(elapsed, timeLabel);
+    details.append(elapsed);
     const actions = document.createElement('div');
     actions.className = 'focus-item-actions';
     const deleteButton = document.createElement('button');
@@ -557,7 +551,7 @@ function renderFocuses(list, person) {
       if (!currentTitle) return toast('事项名称不能为空');
       cancelFocusEdits(person.id, focus.id);
       try {
-        await queueAction({ type: 'updateFocus', personId: person.id, focusId: focus.id, title: currentTitle, endsAt: time.value ? new Date(time.value).toISOString() : '' });
+        await queueAction({ type: 'updateFocus', personId: person.id, focusId: focus.id, title: currentTitle, endsAt: focus.endsAt || '' });
         await queueAction({ type: 'clearFocus', personId: person.id, focusId: focus.id });
       } catch {}
     });
@@ -570,7 +564,7 @@ function renderFocuses(list, person) {
       if (!currentTitle) return toast('事项名称不能为空');
       cancelFocusEdits(person.id, focus.id);
       try {
-        await queueAction({ type: 'updateFocus', personId: person.id, focusId: focus.id, title: currentTitle, endsAt: time.value ? new Date(time.value).toISOString() : '' });
+        await queueAction({ type: 'updateFocus', personId: person.id, focusId: focus.id, title: currentTitle, endsAt: focus.endsAt || '' });
         await queueAction({ type: 'completeFocus', personId: person.id, focusId: focus.id });
         toast('完成时间已经记下来了');
       } catch {}
@@ -579,29 +573,26 @@ function renderFocuses(list, person) {
     let titleIsComposing = false;
     title.addEventListener('compositionstart', () => {
       titleIsComposing = true;
-      beginFocusEdit(person.id, focus.id, title, time);
+      beginFocusEdit(person.id, focus.id, title);
     });
     title.addEventListener('compositionend', () => {
       titleIsComposing = false;
-      updateFocusDraft(person.id, focus.id, title, time);
-      if (document.activeElement !== title) scheduleFocusCommit(person.id, focus.id, title, time);
+      updateFocusDraft(person.id, focus.id, title);
+      if (document.activeElement !== title) scheduleFocusCommit(person.id, focus.id, title);
     });
-    for (const input of [title, time]) {
-      input.addEventListener('focus', () => beginFocusEdit(person.id, focus.id, title, time));
-      input.addEventListener('input', () => updateFocusDraft(person.id, focus.id, title, time));
-      input.addEventListener('blur', event => {
-        if (input === title && titleIsComposing) return;
-        if (event.relatedTarget && row.contains(event.relatedTarget)) return;
-        scheduleFocusCommit(person.id, focus.id, title, time);
-      });
-    }
+    title.addEventListener('focus', () => beginFocusEdit(person.id, focus.id, title));
+    title.addEventListener('input', () => updateFocusDraft(person.id, focus.id, title));
+    title.addEventListener('blur', event => {
+      if (titleIsComposing) return;
+      if (event.relatedTarget && row.contains(event.relatedTarget)) return;
+      scheduleFocusCommit(person.id, focus.id, title);
+    });
     title.addEventListener('keydown', event => {
       if (titleIsComposing || isImeConfirm(event)) return;
       if (event.key === 'Enter') { event.preventDefault(); title.blur(); }
       if (event.key === 'Escape') {
         event.preventDefault();
         title.value = focus.title;
-        time.value = toLocalInput(focus.endsAt);
         cancelFocusEdits(person.id, focus.id);
         title.blur();
       }
@@ -1966,14 +1957,6 @@ function clearPending() {
   pendingImages.forEach(item => URL.revokeObjectURL(item.preview));
   pendingImages = [];
   renderPendingImages();
-}
-
-function toLocalInput(iso) {
-  if (!iso) return '';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const shifted = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return shifted.toISOString().slice(0, 16);
 }
 
 function relativeTime(iso) {
