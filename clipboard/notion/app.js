@@ -520,7 +520,7 @@ function renderFocuses(list, person) {
     });
     const title = document.createElement('textarea');
     title.className = 'focus-item-title';
-    title.rows = 3;
+    title.rows = 2;
     title.maxLength = 100;
     title.value = focus.title;
     title.setAttribute('aria-label', '正在做的事情');
@@ -1763,10 +1763,19 @@ function renderGpuMachines(force = false) {
   if (openGpuMachineName) renderGpuDetail();
 }
 
+function alignFocusCards() {
+  const cards = [...boardsEl.querySelectorAll('.focus-card')];
+  for (const card of cards) card.style.minHeight = '';
+  if (matchMedia('(max-width: 800px)').matches || !cards.length) return;
+  const height = Math.ceil(Math.max(...cards.map(card => card.getBoundingClientRect().height)));
+  for (const card of cards) card.style.minHeight = `${height}px`;
+}
+
 function render() {
   if (!state) return;
   renderIntro();
   for (const person of state.people) renderBoard(person);
+  alignFocusCards();
   renderIdentity();
   renderPresence();
   renderGpuMachines();
@@ -2192,6 +2201,7 @@ publishButton.addEventListener('click', async () => {
 
 showMoreButton.addEventListener('click', appendMoreWallItems);
 window.addEventListener('resize', scheduleWallLayout);
+window.addEventListener('resize', alignFocusCards);
 imagePreview.addEventListener('click', event => {
   if (event.target.closest('.image-preview-nav')) return;
   closeImagePreview();
