@@ -90,7 +90,7 @@ main { width: min(1220px, calc(100% - 40px)); margin: 0 auto; padding: 42px 0 80
 .link-form-error { margin: 15px 0 0; color: var(--important); font-size: 12px; line-height: 1.5; }
 .link-form-actions button:disabled { opacity: .5; cursor: wait; }
 .shortcut-link:focus-visible, .shortcut-link-edit:focus-visible, .add-shortcut-link:focus-visible, .link-icon-choice:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.intro { display: grid; grid-template-columns: minmax(0,1fr) minmax(260px,400px); align-items: center; gap: 24px; margin-bottom: 27px; }
+.intro { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,min(800px,66%)); align-items: center; gap: 24px; margin-bottom: 27px; }
 .intro-copy { min-width: 0; }
 .eyebrow { margin: 0 0 8px; color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: 1.9px; }
 .intro-title-editor { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
