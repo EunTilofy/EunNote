@@ -148,8 +148,11 @@ printf '%s' "$REPORT_TOKEN" | PYTHONPATH="$INSTALL_ROOT" "$PYTHON_BIN" -m eunnot
 unset REPORT_TOKEN
 
 install -m 0644 "$SOURCE_DIR/systemd/eunnote-gpu-track.service" "$SYSTEMD_DIR/eunnote-gpu-track.service"
-sed "s/OnUnitActiveSec=60s/OnUnitActiveSec=${INTERVAL}s/" \
+sed "s/OnUnitInactiveSec=60s/OnUnitInactiveSec=${INTERVAL}s/" \
   "$SOURCE_DIR/systemd/eunnote-gpu-track.timer" >"$SYSTEMD_DIR/eunnote-gpu-track.timer"
+if [[ "$INTERVAL" != 60 ]]; then
+  sed -i '/^OnCalendar=/d' "$SYSTEMD_DIR/eunnote-gpu-track.timer"
+fi
 chmod 0644 "$SYSTEMD_DIR/eunnote-gpu-track.timer"
 
 echo "Detected $NODE_COUNT node(s) from $DISCOVERY_SOURCE:"

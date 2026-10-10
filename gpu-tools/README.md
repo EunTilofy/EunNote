@@ -28,6 +28,10 @@ hostname. It then installs everything under `~/.local`, enables a user systemd
 timer, and sends the first report. Configuration is stored with mode `0600` in
 `~/.config/eunnote-gpu/config.json`.
 
+The default timer also runs each calendar minute, so reporting resumes after a
+reboot even when an earlier timer trigger was missed. Custom intervals run after
+each report finishes, with a startup trigger to resume reporting.
+
 For unattended installation, keep the token off the command line:
 
 ```bash
