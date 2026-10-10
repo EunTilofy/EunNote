@@ -22,21 +22,26 @@
     </div>
   </header>
 
-  <div class="note-layout">
   <main>
     <section class="intro">
-      <p class="eyebrow">TWO PEOPLE · ONE LITTLE SPACE</p>
-      <div id="introEditor" class="intro-title-editor">
-        <h1 id="introTitle" data-color="ink" tabindex="0" role="textbox" aria-label="网站标题，点击修改" title="点击修改标题和颜色">今天，也在好好生活。</h1>
-        <div id="introColors" class="intro-colors" aria-label="选择标题颜色" hidden>
-          <button type="button" data-title-color="ink" aria-label="墨黑" title="墨黑"></button>
-          <button type="button" data-title-color="coral" aria-label="陶土橙" title="陶土橙"></button>
-          <button type="button" data-title-color="sage" aria-label="鼠尾草绿" title="鼠尾草绿"></button>
-          <button type="button" data-title-color="blue" aria-label="雾蓝" title="雾蓝"></button>
-          <button type="button" data-title-color="plum" aria-label="梅紫" title="梅紫"></button>
-          <button type="button" data-title-color="amber" aria-label="暖金" title="暖金"></button>
+      <div class="intro-copy">
+        <p class="eyebrow">TWO PEOPLE · ONE LITTLE SPACE</p>
+        <div id="introEditor" class="intro-title-editor">
+          <h1 id="introTitle" data-color="ink" tabindex="0" role="textbox" aria-label="网站标题，点击修改" title="点击修改标题和颜色">今天，也在好好生活。</h1>
+          <div id="introColors" class="intro-colors" aria-label="选择标题颜色" hidden>
+            <button type="button" data-title-color="ink" aria-label="墨黑" title="墨黑"></button>
+            <button type="button" data-title-color="coral" aria-label="陶土橙" title="陶土橙"></button>
+            <button type="button" data-title-color="sage" aria-label="鼠尾草绿" title="鼠尾草绿"></button>
+            <button type="button" data-title-color="blue" aria-label="雾蓝" title="雾蓝"></button>
+            <button type="button" data-title-color="plum" aria-label="梅紫" title="梅紫"></button>
+            <button type="button" data-title-color="amber" aria-label="暖金" title="暖金"></button>
+          </div>
         </div>
       </div>
+      <aside class="link-rail" aria-labelledby="linkRailTitle">
+        <div class="link-rail-heading"><span id="linkRailTitle">常用链接</span><button id="addShortcutLink" class="add-shortcut-link" type="button" title="增加链接" aria-label="增加链接"><span aria-hidden="true">＋</span><span class="link-add-label">增加链接</span></button></div>
+        <nav id="shortcutLinks" class="shortcut-links" aria-label="自定义快捷链接"></nav>
+      </aside>
     </section>
 
     <section id="boards" class="boards" aria-label="双人记事板"></section>
@@ -117,12 +122,6 @@
       </div>
     </section>
   </main>
-  <aside class="link-rail" aria-labelledby="linkRailTitle">
-    <div class="link-rail-heading"><span id="linkRailTitle">常用链接</span><span aria-hidden="true">↗</span></div>
-    <nav id="shortcutLinks" class="shortcut-links" aria-label="自定义快捷链接"></nav>
-    <button id="addShortcutLink" class="add-shortcut-link" type="button" title="增加链接" aria-label="增加链接"><span aria-hidden="true">＋</span><span class="link-add-label">增加链接</span></button>
-  </aside>
-  </div>
 
   <div id="linkModal" class="modal" hidden>
     <div class="modal-backdrop" data-close-link></div>

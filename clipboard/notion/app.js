@@ -1817,12 +1817,6 @@ function renderShortcutLinks() {
   if (key === renderedLinksKey) return;
   renderedLinksKey = key;
   shortcutLinks.replaceChildren();
-  if (!links.length) {
-    const hint = document.createElement('p');
-    hint.className = 'links-empty';
-    hint.textContent = '把常去的地方，留在这里。';
-    shortcutLinks.append(hint);
-  }
   for (const link of links) {
     const row = document.createElement('div');
     row.className = 'shortcut-link-row';
