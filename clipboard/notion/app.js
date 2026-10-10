@@ -6,6 +6,15 @@ const gpuOverview = document.querySelector('#gpuOverview');
 const gpuDetailModal = document.querySelector('#gpuDetailModal');
 const gpuDetailContent = document.querySelector('#gpuDetailContent');
 const gpuDetailClose = document.querySelector('#gpuDetailClose');
+const shortcutLinks = document.querySelector('#shortcutLinks');
+const linkModal = document.querySelector('#linkModal');
+const linkForm = document.querySelector('#linkForm');
+const linkName = document.querySelector('#linkName');
+const linkUrl = document.querySelector('#linkUrl');
+const linkIconChoices = document.querySelector('#linkIconChoices');
+const linkFormError = document.querySelector('#linkFormError');
+const saveShortcutLink = document.querySelector('#saveShortcutLink');
+const deleteShortcutLink = document.querySelector('#deleteShortcutLink');
 const syncEl = document.querySelector('#syncStatus');
 const identityButton = document.querySelector('#identityButton');
 const identityModal = document.querySelector('#identityModal');
@@ -56,6 +65,23 @@ const imagePreviewCount = document.querySelector('#imagePreviewCount');
 const imagePreviewPrevious = document.querySelector('#imagePreviewPrevious');
 const imagePreviewNext = document.querySelector('#imagePreviewNext');
 const WALL_PAGE_SIZES = { grid: 50, list: 10 };
+const LINK_ICONS = [
+  { id: 'globe', name: '网页', color: 'var(--title-blue)', paths: ['M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z', 'M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z'] },
+  { id: 'book', name: '书本', color: 'var(--green)', paths: ['M12 6v15M12 6C9 4 6 4 3 5v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1Z'] },
+  { id: 'code', name: '代码', color: 'var(--title-plum)', paths: ['m8 7-5 5 5 5m8-10 5 5-5 5M14 4l-4 16'] },
+  { id: 'heart', name: '爱心', color: 'var(--accent)', paths: ['M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z'] },
+  { id: 'spark', name: '星光', color: 'var(--title-amber)', paths: ['m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6L12 3Z'] },
+  { id: 'music', name: '音乐', color: 'var(--title-plum)', paths: ['M9 18V5l11-2v13M9 8l11-2', 'M9 18c0 4-6 4-6 1s6-4 6-1Zm11-2c0 4-6 4-6 1s6-4 6-1Z'] },
+  { id: 'bookmark', name: '收藏', color: 'var(--accent)', paths: ['M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4V4Z'] },
+  { id: 'lab', name: '实验', color: 'var(--green)', paths: ['M9 3h6m-5 0v6l-6 10a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3M7 14h10'] },
+  { id: 'coffee', name: '咖啡', color: 'var(--title-amber)', paths: ['M4 9h13v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Zm13 1h2a3 3 0 0 1 0 6h-2M7 3v2m4-2v2m4-2v2'] },
+  { id: 'cloud', name: '云朵', color: 'var(--title-blue)', paths: ['M7 19a5 5 0 0 1-1-9.9 6 6 0 0 1 11.6-1.6A5.8 5.8 0 0 1 18 19H7Z'] },
+];
+let editingLinkId = null;
+let selectedLinkIcon = 'globe';
+let renderedLinksKey = '';
+let linkModalTrigger;
+let savingLink = false;
 
 let state;
 let gpuMachines = [];
@@ -1763,6 +1789,111 @@ function renderGpuMachines(force = false) {
   if (openGpuMachineName) renderGpuDetail();
 }
 
+function shortcutIcon(iconId) {
+  const option = LINK_ICONS.find(icon => icon.id === iconId) || LINK_ICONS[0];
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.7');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const d of option.paths) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
+  const badge = document.createElement('span');
+  badge.className = 'shortcut-icon';
+  badge.style.setProperty('--link-color', option.color);
+  badge.append(svg);
+  return badge;
+}
+
+function renderShortcutLinks() {
+  const links = state.links || [];
+  const key = JSON.stringify(links);
+  if (key === renderedLinksKey) return;
+  renderedLinksKey = key;
+  shortcutLinks.replaceChildren();
+  if (!links.length) {
+    const hint = document.createElement('p');
+    hint.className = 'links-empty';
+    hint.textContent = '把常去的地方，留在这里。';
+    shortcutLinks.append(hint);
+  }
+  for (const link of links) {
+    const row = document.createElement('div');
+    row.className = 'shortcut-link-row';
+    const anchor = document.createElement('a');
+    anchor.className = 'shortcut-link';
+    anchor.href = link.url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.title = `${link.name}\n${link.url}`;
+    anchor.setAttribute('aria-label', `${link.name}，在新标签页打开`);
+    const name = document.createElement('span');
+    name.className = 'shortcut-name';
+    name.textContent = link.name;
+    anchor.append(shortcutIcon(link.icon), name);
+    const edit = document.createElement('button');
+    edit.className = 'shortcut-link-edit';
+    edit.type = 'button';
+    edit.textContent = '⋯';
+    edit.title = `修改 ${link.name}`;
+    edit.setAttribute('aria-label', `修改链接 ${link.name}`);
+    edit.addEventListener('click', () => openLinkEditor(link.id));
+    row.append(anchor, edit);
+    shortcutLinks.append(row);
+  }
+}
+
+function renderLinkIconChoices() {
+  linkIconChoices.replaceChildren();
+  for (const icon of LINK_ICONS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'link-icon-choice';
+    button.dataset.icon = icon.id;
+    button.setAttribute('aria-pressed', String(icon.id === selectedLinkIcon));
+    button.setAttribute('aria-label', icon.name);
+    const label = document.createElement('span');
+    label.textContent = icon.name;
+    button.append(shortcutIcon(icon.id), label);
+    button.addEventListener('click', () => {
+      selectedLinkIcon = icon.id;
+      for (const choice of linkIconChoices.children) choice.setAttribute('aria-pressed', String(choice.dataset.icon === selectedLinkIcon));
+    });
+    linkIconChoices.append(button);
+  }
+}
+
+function openLinkEditor(linkId = null) {
+  if (!state || savingLink) return;
+  const link = state.links.find(item => item.id === linkId);
+  if (linkId && !link) return;
+  linkModalTrigger = document.activeElement;
+  editingLinkId = link?.id || null;
+  selectedLinkIcon = link?.icon || 'globe';
+  linkName.value = link?.name || '';
+  linkUrl.value = link?.url || '';
+  document.querySelector('#linkModalTitle').textContent = link ? '修改链接' : '增加链接';
+  deleteShortcutLink.hidden = !link;
+  linkFormError.hidden = true;
+  renderLinkIconChoices();
+  linkModal.hidden = false;
+  requestAnimationFrame(() => linkName.focus());
+}
+
+function closeLinkEditor() {
+  if (savingLink) return;
+  linkModal.hidden = true;
+  editingLinkId = null;
+  if (linkModalTrigger?.isConnected) linkModalTrigger.focus({ preventScroll: true });
+  else document.querySelector('#addShortcutLink').focus({ preventScroll: true });
+}
+
 function alignFocusCards() {
   const cards = [...boardsEl.querySelectorAll('.focus-card')];
   for (const card of cards) card.style.minHeight = '';
@@ -1777,6 +1908,7 @@ function render() {
   for (const person of state.people) renderBoard(person);
   alignFocusCards();
   renderIdentity();
+  renderShortcutLinks();
   renderPresence();
   renderGpuMachines();
   renderWall();
@@ -2200,6 +2332,50 @@ publishButton.addEventListener('click', async () => {
 });
 
 showMoreButton.addEventListener('click', appendMoreWallItems);
+document.querySelector('#addShortcutLink').addEventListener('click', () => openLinkEditor());
+linkModal.addEventListener('click', event => {
+  if (event.target.closest('[data-close-link]')) closeLinkEditor();
+});
+linkForm.addEventListener('input', () => { linkFormError.hidden = true; });
+linkForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (savingLink) return;
+  savingLink = true;
+  saveShortcutLink.disabled = true;
+  deleteShortcutLink.disabled = true;
+  try {
+    await queueAction({ type: editingLinkId ? 'updateLink' : 'addLink', linkId: editingLinkId, name: linkName.value, url: linkUrl.value, icon: selectedLinkIcon }, true);
+    savingLink = false;
+    closeLinkEditor();
+    toast('链接已保存');
+  } catch (error) {
+    linkFormError.textContent = error.message;
+    linkFormError.hidden = false;
+  } finally {
+    savingLink = false;
+    saveShortcutLink.disabled = false;
+    deleteShortcutLink.disabled = false;
+  }
+});
+deleteShortcutLink.addEventListener('click', async () => {
+  if (!editingLinkId || savingLink) return;
+  savingLink = true;
+  deleteShortcutLink.disabled = true;
+  saveShortcutLink.disabled = true;
+  try {
+    await queueAction({ type: 'deleteLink', linkId: editingLinkId }, true);
+    savingLink = false;
+    closeLinkEditor();
+    toast('链接已删除');
+  } catch (error) {
+    linkFormError.textContent = error.message;
+    linkFormError.hidden = false;
+  } finally {
+    savingLink = false;
+    deleteShortcutLink.disabled = false;
+    saveShortcutLink.disabled = false;
+  }
+});
 window.addEventListener('resize', scheduleWallLayout);
 window.addEventListener('resize', alignFocusCards);
 imagePreview.addEventListener('click', event => {
@@ -2226,6 +2402,7 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (event.key === 'Escape' && !profileModal.hidden) closeProfile();
+  if (event.key === 'Escape' && !linkModal.hidden) closeLinkEditor();
   if (event.key === 'Escape' && !todoModal.hidden) closeTodoModal();
   if (event.key === 'Escape' && !sloganModal.hidden) closeSlogan();
   if (event.key === 'Escape' && !wallEditModal.hidden) closeWallEditor();

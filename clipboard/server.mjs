@@ -15,6 +15,7 @@ const gpuReportLimit = 1024 * 1024;
 const gpuOfflineTimeout = Math.max(50, Number(process.env.GPU_MONITOR_TIMEOUT_MS) || 5 * 60_000);
 const wallKinds = ['note', 'diary'];
 const wallStyles = ['paper', 'warm', 'sage', 'moon', 'plum'];
+const linkIcons = ['globe', 'book', 'code', 'heart', 'spark', 'music', 'bookmark', 'lab', 'coffee', 'cloud'];
 mkdirSync(mediaDir, { recursive: true, mode: 0o700 });
 
 function readOrCreate(path, initial) {
@@ -44,12 +45,13 @@ function initialNotionState() {
   return { revision: 0, updatedAt: null, intro: { title: '今天，也在好好生活。', color: 'ink' }, people: [
     { id: 'left', name: '左边的人', avatar: '', note: '', slogan: { text: '', color: 'neutral' }, sleeping: false, focuses: [], todos: [] },
     { id: 'right', name: '右边的人', avatar: '', note: '', slogan: { text: '', color: 'neutral' }, sleeping: false, focuses: [], todos: [] },
-  ], wall: [] };
+  ], wall: [], links: [] };
 }
 let notionState = JSON.parse(readOrCreate(notionStatePath, () => JSON.stringify(initialNotionState())));
 const presenceTimeout = Math.max(50, Number(process.env.NOTION_PRESENCE_TIMEOUT_MS) || 35_000);
 const notionPresence = new Map(notionState.people.map(person => [person.id, { sleeping: person.sleeping === true, lastSeenAt: null, sessions: new Map() }]));
 let stateMigrated = false;
+if (!Object.hasOwn(notionState, 'links')) { notionState.links = []; stateMigrated = true; }
 if (!notionState.intro) { notionState.intro = { title: '今天，也在好好生活。', color: 'ink' }; stateMigrated = true; }
 for (const person of notionState.people) {
   if (!person.slogan) { person.slogan = { text: '', color: 'neutral' }; stateMigrated = true; }
@@ -132,6 +134,7 @@ function validateNotionState(value) {
     if (person.todos.some(todo => !todo || typeof todo.id !== 'string' || typeof todo.text !== 'string' || !['todo', 'doing', 'done'].includes(todo.status) || typeof todo.done !== 'boolean' || typeof todo.createdAt !== 'string' || !(todo.completedAt === null || typeof todo.completedAt === 'string') || !['', 'hours', 'days'].includes(todo.recurrence) || !Number.isInteger(todo.recurrenceInterval) || todo.recurrenceInterval < 0 || typeof todo.occurrenceDate !== 'string' || typeof todo.dueAt !== 'string' || typeof todo.seriesId !== 'string' || typeof todo.important !== 'boolean' || (todo.recurrence === 'days' && !validDateKey(todo.occurrenceDate)) || (todo.recurrence === 'hours' && Number.isNaN(new Date(todo.dueAt).getTime())))) throw new Error('Invalid todo state');
   }
   if (value.wall.some(item => !item || typeof item.id !== 'string' || !['left', 'right'].includes(item.authorId) || typeof item.text !== 'string' || !Array.isArray(item.images) || typeof item.createdAt !== 'string' || !wallKinds.includes(item.kind) || !wallStyles.includes(item.style) || typeof item.featured !== 'boolean')) throw new Error('Invalid wall state');
+  if (!Array.isArray(value.links) || value.links.length > 60 || new Set(value.links.map(link => link?.id)).size !== value.links.length || value.links.some(link => !link || typeof link.id !== 'string' || typeof link.name !== 'string' || !link.name.trim() || link.name.length > 40 || !linkIcons.includes(link.icon) || !validLinkUrl(link.url))) throw new Error('Invalid links state');
 }
 function saveNotionState() {
   notionState.revision += 1;
@@ -145,6 +148,26 @@ function cleanText(value, max, label) {
   const result = value.trim();
   if (result.length > max) throw bad(`${label}不能超过 ${max} 个字。`);
   return result;
+}
+function validLinkUrl(value) {
+  if (typeof value !== 'string' || value.length > 2048) return false;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password;
+  } catch { return false; }
+}
+function linkFields(action) {
+  const name = cleanText(action.name, 40, '链接名字');
+  if (!name) throw bad('链接名字不能为空。');
+  let url = cleanText(action.url, 2048, '链接地址');
+  if (!url) throw bad('链接地址不能为空。');
+  if (url.startsWith('//')) url = `https:${url}`;
+  else if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = `https://${url}`;
+  if (!validLinkUrl(url)) throw bad('请输入有效的 http 或 https 网址。');
+  if (!linkIcons.includes(action.icon)) throw bad('链接图标无效。');
+  const normalizedUrl = new URL(url).href;
+  if (!validLinkUrl(normalizedUrl)) throw bad('链接地址太长，请缩短后再保存。');
+  return { name, url: normalizedUrl, icon: action.icon };
 }
 function gpuString(value, max, label, fallback = '') {
   if (value === undefined || value === null) return fallback;
@@ -370,6 +393,24 @@ function removeMedia(url) {
 
 function applyAction(action) {
   if (!action || typeof action.type !== 'string') throw bad('操作格式不正确。');
+  if (action.type === 'addLink') {
+    const fields = linkFields(action);
+    if (notionState.links.length >= 60) throw bad('最多保存 60 个链接，请先整理一下已有链接。');
+    notionState.links.push({ id: randomBytes(8).toString('hex'), ...fields });
+    saveNotionState(); return;
+  }
+  if (action.type === 'updateLink') {
+    const link = notionState.links.find(item => item.id === action.linkId);
+    if (!link) throw bad('这条链接已经不存在了。', 404);
+    Object.assign(link, linkFields(action));
+    saveNotionState(); return;
+  }
+  if (action.type === 'deleteLink') {
+    const index = notionState.links.findIndex(item => item.id === action.linkId);
+    if (index < 0) throw bad('这条链接已经不存在了。', 404);
+    notionState.links.splice(index, 1);
+    saveNotionState(); return;
+  }
   if (action.type === 'setIntro') {
     const title = cleanText(action.title, 50, '标题');
     if (!title) throw bad('标题不能为空。');

@@ -22,6 +22,7 @@
     </div>
   </header>
 
+  <div class="note-layout">
   <main>
     <section class="intro">
       <p class="eyebrow">TWO PEOPLE · ONE LITTLE SPACE</p>
@@ -116,6 +117,28 @@
       </div>
     </section>
   </main>
+  <aside class="link-rail" aria-labelledby="linkRailTitle">
+    <div class="link-rail-heading"><span id="linkRailTitle">常用链接</span><span aria-hidden="true">↗</span></div>
+    <nav id="shortcutLinks" class="shortcut-links" aria-label="自定义快捷链接"></nav>
+    <button id="addShortcutLink" class="add-shortcut-link" type="button" title="增加链接" aria-label="增加链接"><span aria-hidden="true">＋</span><span class="link-add-label">增加链接</span></button>
+  </aside>
+  </div>
+
+  <div id="linkModal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-link></div>
+    <form id="linkForm" class="modal-card link-modal-card" role="dialog" aria-modal="true" aria-labelledby="linkModalTitle">
+      <button class="modal-close" data-close-link type="button" aria-label="关闭">×</button>
+      <p class="eyebrow">A LITTLE SHORTCUT</p>
+      <h2 id="linkModalTitle">增加链接</h2>
+      <label class="field-label" for="linkName">链接名字</label>
+      <input id="linkName" class="text-input" maxlength="40" required autocomplete="off" placeholder="给它取个名字">
+      <label class="field-label link-url-label" for="linkUrl">链接网址</label>
+      <input id="linkUrl" class="text-input" maxlength="2048" required inputmode="url" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="https://example.com">
+      <fieldset class="link-icon-field"><legend class="field-label">选择图标</legend><div id="linkIconChoices" class="link-icon-choices"></div></fieldset>
+      <p id="linkFormError" class="link-form-error" role="alert" hidden></p>
+      <div class="link-form-actions"><button id="deleteShortcutLink" class="delete-shortcut-link" type="button" hidden>删除链接</button><button id="saveShortcutLink" class="primary-button" type="submit">保存链接</button></div>
+    </form>
+  </div>
 
   <div id="todoModal" class="modal" hidden>
     <div class="modal-backdrop" data-close-todo></div>

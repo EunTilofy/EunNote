@@ -57,6 +57,22 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     assert.match(noteScript, /\/gpu\/order/);
     assert.equal((await fetch(`${base}/notion/api/state`)).status, 401);
     assert.equal((await state()).people.length, 2);
+    assert.deepEqual((await state()).links, []);
+    assert.equal((await action({ type: 'addLink', name: '代码仓库', url: 'github.com/EunTilofy/EunNote', icon: 'code' })).status, 200);
+    const shortcut = (await state()).links[0];
+    assert.equal(shortcut.url, 'https://github.com/EunTilofy/EunNote');
+    assert.equal(shortcut.icon, 'code');
+    for (const url of ['javascript:alert(1)', 'data:text/html,test', 'file:///etc/passwd', 'https://user:password@example.com', 'not a url', `https://example.com/${'中'.repeat(700)}`]) {
+      assert.equal((await action({ type: 'updateLink', linkId: shortcut.id, name: '无效链接', url, icon: 'heart' })).status, 400);
+    }
+    assert.deepEqual((await state()).links[0], shortcut);
+    assert.equal((await action({ type: 'addLink', name: '图标测试', url: 'https://example.com', icon: 'invalid' })).status, 400);
+    assert.equal((await action({ type: 'updateLink', linkId: shortcut.id, name: '常看的代码', url: 'https://example.com/code?x=1&y=2', icon: 'bookmark' })).status, 200);
+    assert.equal((await action({ type: 'addLink', name: '临时链接', url: 'https://example.org', icon: 'cloud' })).status, 200);
+    const temporaryLink = (await state()).links[1];
+    assert.equal((await action({ type: 'deleteLink', linkId: temporaryLink.id })).status, 200);
+    assert.equal((await action({ type: 'deleteLink', linkId: temporaryLink.id })).status, 404);
+    assert.equal((await state()).links.length, 1);
     const gpuPayload = {
       machine: 'lab-cluster',
       nodes: [
@@ -241,6 +257,7 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     await stop();
     await start();
     assert.equal((await snapshot()).gpuMachines[0].name, 'lab-cluster');
+    assert.deepEqual((await state()).links, saved.links);
     assert.deepEqual((await state()).intro, { title: '今天也一起加油。', color: 'plum' });
     assert.deepEqual((await state()).people[0].slogan, { text: '慢一点，也是在前进。', color: 'sage' });
     assert.equal((await state()).wall[0].text, '今日份小日记');
@@ -281,6 +298,7 @@ test('existing single-focus data migrates to the multi-focus model', async () =>
     const key = (await readFile(join(dir, 'access-token'), 'utf8')).trim();
     const response = await fetch(`${base}/notion/api/state`, { headers: { Authorization: `Bearer ${key}` } });
     const migrated = (await response.json()).state;
+    assert.deepEqual(migrated.links, []);
     assert.equal(migrated.people[0].focuses[0].title, '旧的进行中事项');
     assert.ok(migrated.people[0].focuses[0].startedAt);
     assert.equal(migrated.people[0].todos[0].status, 'done');
