@@ -32,6 +32,11 @@ The default timer also runs each calendar minute, so reporting resumes after a
 reboot even when an earlier timer trigger was missed. Custom intervals run after
 each report finishes, with a startup trigger to resume reporting.
 
+To pause reporting, set `"report_enabled": false` in the configuration and
+disable the user timer. A paused tracker exits without collecting or sending
+data, even if it is invoked again. Remove this flag or set it to `true` before
+re-enabling the timer to resume reporting.
+
 For unattended installation, keep the token off the command line:
 
 ```bash

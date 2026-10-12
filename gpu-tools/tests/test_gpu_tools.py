@@ -10,7 +10,15 @@ from unittest.mock import patch
 from eunnote_gpu.collector import command_label, is_filler_command, redact_arguments
 from eunnote_gpu.common import discover_nodes, normalize_report_url
 from eunnote_gpu.ggpu import duration_since
-from eunnote_gpu.track import apply_idle_tracking
+from eunnote_gpu.track import apply_idle_tracking, run_once
+
+
+class ReportControlTests(unittest.TestCase):
+    def test_paused_reporting_does_not_collect_or_send(self):
+        with patch("eunnote_gpu.track.collect_tracked") as collect, patch("eunnote_gpu.track.post_report") as post:
+            self.assertEqual(run_once({"report_enabled": False}), 0)
+            collect.assert_not_called()
+            post.assert_not_called()
 
 
 class CollectorTests(unittest.TestCase):

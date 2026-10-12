@@ -143,6 +143,8 @@ def post_report(config: dict, nodes: list[dict]) -> dict:
 
 
 def run_once(config: dict, print_json: bool = False) -> int:
+    if config.get("report_enabled") is False:
+        return 0
     nodes, errors = collect_tracked(config)
     if not nodes:
         print("GPU collection failed on every node", file=sys.stderr)
