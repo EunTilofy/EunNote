@@ -1,11 +1,11 @@
 # EunNote
 
-EunNote is the source tree for the services published on port 6357:
+EunNote is the source tree for the private tools published through HTTPS:
 
-- `/` — the launcher for all functions
-- `/clipboard/` — the shared clipboard
-- `/notion/` — the two-person note space and GPU monitor
-- `/shuji/` — the 数迹 number game, proxied from its private local service
+- `/eunnote/` — the launcher for all functions
+- `/eunnote/clipboard/` — the shared clipboard
+- `/eunnote/notion/` — the two-person note space and GPU monitor
+- `/eunnote/shuji/` — the 数迹 number game, proxied from its private local service
 
 ## Repository layout
 
@@ -26,7 +26,7 @@ contents. Only the placeholder files are committed.
 
 - Node.js 20 or newer
 - npm for installing 数迹 dependencies
-- systemd user services for the production setup
+- Nginx, Certbot >=5.4, and systemd system services for HTTPS production hosting
 
 ## Install and test
 
@@ -36,7 +36,7 @@ npm ci
 npm test
 
 cd ~/EunNote/clipboard
-node --test app.test.mjs server.test.mjs notion.test.mjs
+node --test app.test.mjs server.test.mjs notion.test.mjs security.test.mjs
 ```
 
 The clipboard service has no third-party runtime dependencies. 数迹 uses the
@@ -48,17 +48,58 @@ GPU hosts can install the monitoring and cooperative filler commands with
 
 ## Production services
 
-The deployment on this host runs the public gateway on port 6357 and 数迹 on
-the private loopback port 6358. The gateway proxies `/shuji/` to that private
-service.
+Public access is `https://123.59.6.243/eunnote/`, without an explicit port. Nginx serves
+HTTPS on 443 and redirects HTTP on 80; port 80 also serves the ACME certificate
+challenge. The public launcher lives under `/eunnote/`; legacy page links redirect there.
+Both application services use `PUBLIC_BASE_PATH=/eunnote`. The application still listens on `0.0.0.0:6357`, and 数迹 still
+listens on `127.0.0.1:6358`. A dedicated IPv4/IPv6 firewall chain blocks direct
+public access to these two backend ports without changing their bind addresses.
 
-Service templates are in `deploy/systemd/`. After copying them into the user
-systemd directory, reload and restart them with:
+The new website services are `eunnote-gateway.service` and
+`eunnote-shuji.service`. They run as `zzx` under the system service manager with
+filesystem restrictions, no capabilities, and no access to the user's SSH
+directory, configuration directory, or agent sockets. Only application data
+directories are writable. The legacy user website units are masked during
+deployment; GPU reporting remains separately paused.
+
+Install Nginx and create a root-owned Certbot virtual environment first:
 
 ```bash
-systemctl --user daemon-reload
-systemctl --user enable --now shuji.service clipboard.service
+sudo apt-get install nginx python3-venv
+sudo python3 -m venv /opt/eunnote-certbot
+sudo /opt/eunnote-certbot/bin/pip install 'certbot>=5.4,<6'
+sudo bash ~/EunNote/deploy/install-https.sh 123.59.6.243
 ```
 
-The live access key is generated in `clipboard/data/access-token`. Never add
-runtime data or access keys to Git.
+The deployment script rotates both application access keys, requests a trusted
+IP certificate, installs the reverse proxy and backend port filter, and enables
+the certificate renewal timer. Re-running it rotates access keys again and
+restarts the website. Certificate issuance needs public access to port 80.
+Optional network proxy settings for Certbot belong in root-owned
+`/etc/eunnote/certbot-network.env`, not in Git. Certificates and private keys
+remain in `/etc/letsencrypt` and never enter the repository.
+
+## Access and credentials
+
+The login form exchanges the website access code for a random HttpOnly,
+Secure, SameSite=Strict cookie. Only session-token hashes are stored on disk.
+Sessions expire after 30 days, survive restarts, and are revoked on logout.
+Logout also disconnects authenticated game WebSockets. Rotating the access code
+invalidates existing sessions. Closing the browser does not sign out. The long-lived code is no longer forwarded in
+navigation URLs or stored in a browser cookie. HTTP APIs and game transports
+require authentication; cross-origin requests, invalid host headers, excessive
+login attempts, oversized bodies and invalid image formats are rejected.
+
+Read the access code from `clipboard/data/access-token` on a trusted device
+over SSH. It is separate from the Linux account password. Do not put it in
+chat, Git, command-line URLs or shared logs. To rotate it, replace the file with
+a fresh 24-byte hexadecimal value with mode 0600, then restart both website
+services. GPU reporters must use the HTTPS endpoint
+`https://123.59.6.243/eunnote/notion/api/gpu/report` with the independent token from
+`clipboard/data/gpu-monitor-token`; the previous GPU token is revoked during
+deployment. Reporting on 242–245 stays paused until explicitly re-enabled.
+
+The renewal timer checks short-lived IP certificates every six hours and
+reloads Nginx after renewal. Check its status with
+`systemctl status eunnote-cert-renew.timer`. Website hardening does not replace
+host recovery or revocation of previously exposed SSH keys.

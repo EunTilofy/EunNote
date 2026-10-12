@@ -1,4 +1,6 @@
-const token = new URLSearchParams(location.hash.slice(1)).get('key');
+const mediaPath = window.eunNoteMedia || (value => value);
+const sitePath = window.eunNotePath || (path => path);
+const token = window.eunNoteSession ? 'session' : new URLSearchParams(location.hash.slice(1)).get('key');
 const boardsEl = document.querySelector('#boards');
 const wallEl = document.querySelector('#wall');
 const gpuMachinesEl = document.querySelector('#gpuMachines');
@@ -143,17 +145,18 @@ function isImeConfirm(event) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(`/notion/api${path}`, {
+  const response = await fetch(sitePath(`/notion/api${path}`), {
     ...options,
     cache: 'no-store',
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...(token !== 'session' ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.body && !(options.body instanceof Blob) ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
     },
     signal: AbortSignal.timeout(20000),
   });
   if (!response.ok) {
+    if (response.status === 401 && window.eunNoteSession) location.replace(`${sitePath('/auth/')}?next=${encodeURIComponent(sitePath('/notion/'))}`);
     let message = `请求失败 (${response.status})`;
     try { message = (await response.json()).error || message; } catch {}
     throw new Error(message);
@@ -222,7 +225,7 @@ function applyTheme(theme) {
 }
 
 const savedTheme = localStorage.getItem('note-theme');
-if (token) backHome.href = `/#key=${encodeURIComponent(token)}`;
+if (token && token !== 'session') backHome.href = `${sitePath('/')}#key=${encodeURIComponent(token)}`;
 applyTheme(savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 themeToggle.addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -239,7 +242,7 @@ function avatarNode(person, className = 'avatar') {
   node.className = className;
   if (person.avatar) {
     const img = document.createElement('img');
-    img.src = person.avatar;
+    img.src = mediaPath(person.avatar);
     img.alt = '';
     node.append(img);
   } else {
@@ -939,7 +942,7 @@ function wallCard(item) {
       img.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openImagePreview(sources, index); }
       });
-      img.src = source;
+      img.src = mediaPath(source);
       images.append(img);
     }
     gallery.append(images);
@@ -1132,7 +1135,7 @@ function renderWallEditImages() {
     const thumb = document.createElement('figure');
     thumb.className = 'wall-edit-thumb';
     const preview = document.createElement('img');
-    preview.src = image.url || image.preview;
+    preview.src = mediaPath(image.url || image.preview);
     preview.alt = `第 ${index + 1} 张图片`;
     preview.addEventListener('click', () => openImagePreview(sources, index));
     const remove = document.createElement('button');
@@ -1164,7 +1167,7 @@ function openImagePreview(images, index = 0) {
 
 function renderImagePreview(animate = true) {
   imagePreviewImage.classList.remove('is-switching');
-  imagePreviewImage.src = previewImages[previewImageIndex] || '';
+  imagePreviewImage.src = mediaPath(previewImages[previewImageIndex] || '');
   if (animate) {
     void imagePreviewImage.offsetWidth;
     imagePreviewImage.classList.add('is-switching');
@@ -2033,7 +2036,7 @@ function setAvatarPreview(src, person) {
   avatarPreview.replaceChildren();
   if (src) {
     const img = document.createElement('img');
-    img.src = src;
+    img.src = mediaPath(src);
     img.alt = '';
     avatarPreview.append(img);
   } else {
@@ -2072,7 +2075,7 @@ function renderPendingImages() {
     const thumb = document.createElement('div');
     thumb.className = 'pending-thumb';
     const img = document.createElement('img');
-    img.src = pending.preview;
+    img.src = mediaPath(pending.preview);
     img.alt = '待上传图片';
     img.addEventListener('click', () => openImagePreview(pendingImages.map(item => item.preview), index));
     const remove = document.createElement('button');
@@ -2456,5 +2459,5 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => {
   if (!presenceStarted || !identity || manuallySleeping || !token) return;
   const body = new Blob([JSON.stringify({ personId: identity, sessionId: presenceSessionId, status: 'away' })], { type: 'application/json' });
-  navigator.sendBeacon('/notion/api/presence', body);
+  navigator.sendBeacon(sitePath('/notion/api/presence'), body);
 });

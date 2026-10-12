@@ -1,11 +1,12 @@
+const sitePath = window.eunNotePath || (path => path);
 const editor = document.querySelector('#text');
 const status = document.querySelector('#status');
 const count = document.querySelector('#count');
 const saveButton = document.querySelector('#save');
 const copyButton = document.querySelector('#copy');
-const token = new URLSearchParams(location.hash.slice(1)).get('key');
+const token = window.eunNoteSession ? 'session' : new URLSearchParams(location.hash.slice(1)).get('key');
 const backHome = document.querySelector('#backHome');
-if (backHome && token) backHome.href = `/#key=${encodeURIComponent(token)}`;
+if (backHome && token && token !== 'session') backHome.href = `${sitePath('/')}#key=${encodeURIComponent(token)}`;
 let dirty = false;
 let saving = false;
 let loading = false;
@@ -25,14 +26,15 @@ function saved(at) {
   show(at ? `已保存 · ${new Date(at).toLocaleString()}` : '已连接，等待粘贴', 'saved');
 }
 async function request(method, body) {
-  const response = await fetch('/api/text', {
+  const response = await fetch(sitePath('/api/text'), {
     method,
-    headers: { Authorization: `Bearer ${token}`, ...(method === 'PUT' ? { 'Content-Type': 'text/plain; charset=utf-8' } : {}) },
+    headers: { ...(token !== 'session' ? { Authorization: `Bearer ${token}` } : {}), ...(method === 'PUT' ? { 'Content-Type': 'text/plain; charset=utf-8' } : {}) },
     body,
     cache: 'no-store',
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) {
+    if (response.status === 401 && window.eunNoteSession) location.replace(`${sitePath('/auth/')}?next=${encodeURIComponent(sitePath('/clipboard/'))}`);
     const error = await response.json();
     throw new Error(error.error || `请求失败 (${response.status})`);
   }

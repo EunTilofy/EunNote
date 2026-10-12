@@ -1,8 +1,9 @@
 import http from 'node:http';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { createReadStream, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createSecurity, sameSecret } from './security.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.CLIPBOARD_STATE_DIR || join(root, 'data');
@@ -32,6 +33,8 @@ const token = readOrCreate(join(dataDir, 'access-token'), () => randomBytes(24).
 if (!/^[a-f0-9]{48}$/.test(token)) throw new Error('Invalid access token file');
 const gpuMonitorToken = readOrCreate(join(dataDir, 'gpu-monitor-token'), () => randomBytes(32).toString('hex')).trim();
 if (!/^[a-f0-9]{64}$/.test(gpuMonitorToken)) throw new Error('Invalid GPU monitor token file');
+const security = createSecurity({ dataDir, token, origin: process.env.PUBLIC_ORIGIN || '', behindProxy: process.env.BEHIND_PROXY === '1', basePath: process.env.PUBLIC_BASE_PATH || '', sessionSeconds: Number(process.env.SESSION_SECONDS) || 2592000, rateLimit: Number(process.env.RATE_LIMIT) || 1200, loginLimit: Number(process.env.LOGIN_LIMIT) || 10 });
+const upgradedSessions = new Map();
 
 const clipboardStatePath = join(dataDir, 'text.json');
 let clipboardState = JSON.parse(readOrCreate(clipboardStatePath, () => JSON.stringify({ text: '', updatedAt: null, revision: 0 })));
@@ -92,27 +95,33 @@ if (stateMigrated) {
 }
 validateNotionState(notionState);
 
-const homePage = readFileSync(join(root, 'home.html'));
+const basePath = (process.env.PUBLIC_BASE_PATH || '').replace(/\/$/, '');
+if (basePath && !/^\/[a-zA-Z0-9_-]+$/.test(basePath)) throw new Error('Invalid PUBLIC_BASE_PATH');
+const publicPath = path => basePath + path;
+const readPage = path => readFileSync(path, 'utf8').replace(/(\b(?:href|src)=")\/(?!\/)/g, `$1${basePath}/`);
+const homePage = readPage(join(root, 'home.html'));
 const homeStyle = readFileSync(join(root, 'home.css'));
 const homeScript = readFileSync(join(root, 'home.js'));
-const clipboardPage = readFileSync(join(root, 'index.html'));
+const clipboardPage = readPage(join(root, 'index.html'));
 const clipboardScript = readFileSync(join(root, 'app.js'));
-const notionPage = readFileSync(join(root, 'notion', 'index.html'));
+const notionPage = readPage(join(root, 'notion', 'index.html'));
 const notionScript = readFileSync(join(root, 'notion', 'app.js'));
 const notionStyle = readFileSync(join(root, 'notion', 'style.css'));
+const loginPage = readPage(join(root, 'auth', 'index.html'));
+const loginScript = readFileSync(join(root, 'auth', 'login.js'));
+const loginStyle = readFileSync(join(root, 'auth', 'style.css'));
+const authClient = readFileSync(join(root, 'auth', 'client.js'));
+const authClientStyle = readFileSync(join(root, 'auth', 'client.css'));
 
 function reply(res, status, body, type = 'application/json; charset=utf-8') {
   res.writeHead(status, { 'Content-Type': type });
   res.end(type.startsWith('application/json') ? JSON.stringify(body) : body);
 }
 function secureEqual(actual, expected) {
-  const left = Buffer.from(actual); const right = Buffer.from(expected);
-  return left.length === right.length && timingSafeEqual(left, right);
+  return sameSecret(actual, expected);
 }
 function authorized(req) {
-  const bearer = req.headers.authorization || '';
-  const cookieValue = (req.headers.cookie || '').split(';').map(value => value.trim()).find(value => value.startsWith('note_key='))?.slice('note_key='.length) || '';
-  return secureEqual(bearer, `Bearer ${token}`) || secureEqual(cookieValue, token);
+  return security.authenticated(req);
 }
 function gpuAuthorized(req) {
   return secureEqual(req.headers.authorization || '', `Bearer ${gpuMonitorToken}`);
@@ -587,7 +596,7 @@ function applyAction(action) {
 
 const mediaTypes = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
 const uploadTypes = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
-const shujiTarget = { hostname: '127.0.0.1', port: 6358 };
+const shujiTarget = { hostname: '127.0.0.1', port: Number(process.env.SHUJI_PORT) || 6358 };
 
 function shujiPath(rawUrl = '/') {
   const stripped = rawUrl.replace(/^\/shuji(?=\/|\?|$)/, '');
@@ -595,14 +604,13 @@ function shujiPath(rawUrl = '/') {
 }
 
 function shujiHeaders(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  const remote = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '');
   return {
     ...req.headers,
     host: `${shujiTarget.hostname}:${shujiTarget.port}`,
-    'x-forwarded-for': forwarded ? `${forwarded}, ${remote}` : remote,
+    'x-forwarded-for': security.clientIp(req),
     'x-forwarded-host': req.headers.host || '',
-    'x-forwarded-proto': req.socket.encrypted ? 'https' : 'http',
+    'x-forwarded-proto': security.publicOrigin ? 'https' : 'http',
+    'x-eunnote-gateway-key': token,
   };
 }
 
@@ -619,26 +627,68 @@ function proxyShuji(req, res) {
   req.pipe(proxy);
 }
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`); const path = url.pathname;
+const server = http.createServer({ maxHeaderSize: 16384 }, async (req, res) => {
   res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  const rejection = security.check(req);
+  if (rejection) {
+    res.setHeader('Connection', 'close');
+    if (rejection.status === 429) res.setHeader('Retry-After', '60');
+    return reply(res, rejection.status, { error: rejection.error });
+  }
+  let url;
+  try { url = new URL(req.url, 'http://localhost'); }
+  catch { return reply(res, 400, { error: '请求地址无效。' }); }
+  if (basePath && url.pathname !== '/healthz') {
+    if (!url.pathname.startsWith(`${basePath}/`)) return reply(res, 404, { error: '页面不存在。' });
+    url.pathname = url.pathname.slice(basePath.length);
+    req.url = url.pathname + url.search;
+  }
+  const path = url.pathname;
   res.setHeader('Content-Security-Policy', path.startsWith('/notion')
     ? "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
     : path.startsWith('/shuji')
       ? "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'"
       : "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'");
   try {
+    if (req.method === 'GET' && path === '/auth/') return reply(res, 200, loginPage, 'text/html; charset=utf-8');
+    if (req.method === 'GET' && path === '/auth/login.js') return reply(res, 200, loginScript, 'text/javascript; charset=utf-8');
+    if (req.method === 'GET' && path === '/auth/style.css') return reply(res, 200, loginStyle, 'text/css; charset=utf-8');
+    if (req.method === 'GET' && path === '/auth/client.js') return reply(res, 200, authClient, 'text/javascript; charset=utf-8');
+    if (req.method === 'GET' && path === '/auth/client.css') return reply(res, 200, authClientStyle, 'text/css; charset=utf-8');
+    if (path === '/auth/session' && req.method === 'POST') {
+      if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw bad('请提交 JSON。', 415);
+      const body = JSON.parse((await readBody(req, 4096)).toString('utf8'));
+      const status = security.login(req, res, body?.key);
+      if (status === 429) res.setHeader('Retry-After', '900');
+      return reply(res, status, status === 200 ? { ok: true } : { error: status === 429 ? '尝试次数过多，请稍后再试。' : '访问码无效。' });
+    }
+    if (path === '/auth/session' && req.method === 'GET') return reply(res, authorized(req) ? 200 : 401, { authenticated: authorized(req) });
+    if (path === '/auth/logout' && req.method === 'POST') {
+      const sessionId = security.logout(req, res);
+      for (const [socket, session] of upgradedSessions) if (session.id === sessionId) socket.destroy();
+      return reply(res, 200, { ok: true });
+    }
+    const privatePage = ['/', '/clipboard', '/clipboard/', '/notion', '/notion/'].includes(path);
+    if ((privatePage || path === '/shuji' || path.startsWith('/shuji/')) && !authorized(req)) {
+      if (['GET', 'HEAD'].includes(req.method) && (privatePage || ['/shuji', '/shuji/'].includes(path))) {
+        res.writeHead(303, { Location: `${publicPath('/auth/')}?next=${encodeURIComponent(publicPath(path))}` });
+        return res.end();
+      }
+      return reply(res, 401, { error: '请先登录。' });
+    }
     if (req.method === 'GET' && path === '/') return reply(res, 200, homePage, 'text/html; charset=utf-8');
     if (req.method === 'GET' && path === '/home.css') return reply(res, 200, homeStyle, 'text/css; charset=utf-8');
     if (req.method === 'GET' && path === '/home.js') return reply(res, 200, homeScript, 'text/javascript; charset=utf-8');
-    if (path === '/clipboard' && req.method === 'GET') { res.writeHead(308, { Location: '/clipboard/' }); return res.end(); }
+    if (path === '/clipboard' && req.method === 'GET') { res.writeHead(308, { Location: publicPath('/clipboard/') }); return res.end(); }
     if (req.method === 'GET' && path === '/clipboard/') return reply(res, 200, clipboardPage, 'text/html; charset=utf-8');
     if (req.method === 'GET' && path === '/clipboard/app.js') return reply(res, 200, clipboardScript, 'text/javascript; charset=utf-8');
     if (req.method === 'GET' && path === '/app.js') return reply(res, 200, clipboardScript, 'text/javascript; charset=utf-8');
-    if (req.method === 'GET' && path === '/healthz') return reply(res, 200, { ok: true });
-    if (path === '/shuji' && req.method === 'GET') { res.writeHead(308, { Location: '/shuji/' }); return res.end(); }
+    if (['GET', 'HEAD'].includes(req.method) && path === '/healthz') return reply(res, 200, { ok: true });
+    if (path === '/shuji' && req.method === 'GET') { res.writeHead(308, { Location: publicPath('/shuji/') }); return res.end(); }
     if (path.startsWith('/shuji/')) return proxyShuji(req, res);
-    if (path === '/notion' && req.method === 'GET') { res.writeHead(308, { Location: '/notion/' }); return res.end(); }
+    if (path === '/notion' && req.method === 'GET') { res.writeHead(308, { Location: publicPath('/notion/') }); return res.end(); }
     if (req.method === 'GET' && path === '/notion/') return reply(res, 200, notionPage, 'text/html; charset=utf-8');
     if (req.method === 'GET' && path === '/notion/app.js') return reply(res, 200, notionScript, 'text/javascript; charset=utf-8');
     if (req.method === 'GET' && path === '/notion/style.css') return reply(res, 200, notionStyle, 'text/css; charset=utf-8');
@@ -659,7 +709,6 @@ const server = http.createServer(async (req, res) => {
     }
     if (path === '/notion/api/state' && req.method === 'GET') {
       if (!authorized(req)) return reply(res, 401, { error: '访问密钥无效，请使用完整链接。' });
-      res.setHeader('Set-Cookie', `note_key=${token}; Path=/notion; HttpOnly; SameSite=Strict; Max-Age=31536000`);
       return reply(res, 200, { state: notionState, presence: presenceSnapshot(), gpuMachines: gpuSnapshot() });
     }
     if (path === '/notion/api/gpu/machine' && req.method === 'DELETE') {
@@ -698,6 +747,11 @@ const server = http.createServer(async (req, res) => {
       const type = req.headers['content-type']?.split(';')[0]; const extension = uploadTypes[type];
       if (!extension) throw bad('仅支持 PNG、JPG、GIF 或 WebP 图片。', 415);
       const image = await readBody(req, imageLimit); if (!image.length) throw bad('图片内容为空。');
+      const validImage = type === 'image/png' ? image.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))
+        : type === 'image/jpeg' ? image[0] === 255 && image[1] === 216 && image[2] === 255
+        : type === 'image/gif' ? ['GIF87a', 'GIF89a'].includes(image.subarray(0, 6).toString('ascii'))
+        : image.subarray(0, 4).toString('ascii') === 'RIFF' && image.subarray(8, 12).toString('ascii') === 'WEBP';
+      if (!validImage) throw bad('图片内容与格式不符。', 415);
       const filename = `${randomBytes(16).toString('hex')}.${extension}`;
       writeFileSync(join(mediaDir, filename), image, { mode: 0o600, flag: 'wx' });
       return reply(res, 201, { url: `/notion/media/${filename}` });
@@ -720,9 +774,33 @@ const server = http.createServer(async (req, res) => {
   }
 });
 server.requestTimeout = 30_000; server.headersTimeout = 15_000;
+server.keepAliveTimeout = 5000;
+server.maxConnections = 512;
 server.on('upgrade', (req, socket, head) => {
+  const rejection = security.check(req);
+  if (rejection || !authorized(req)) {
+    socket.end(`HTTP/1.1 ${rejection?.status || 401} Access denied\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+    return;
+  }
+  if (basePath) {
+    if (!req.url?.startsWith(`${basePath}/`)) return socket.destroy();
+    req.url = req.url.slice(basePath.length);
+  }
   const path = (req.url || '').split('?')[0];
   if (!path.startsWith('/shuji/socket.io/')) return socket.destroy();
+  const session = security.socketSession(req);
+  if (session) {
+    upgradedSessions.set(socket, session);
+    let expiry;
+    function scheduleExpiry() {
+      const remaining = session.expires - Date.now();
+      if (remaining <= 0) return socket.destroy();
+      expiry = setTimeout(scheduleExpiry, Math.min(2147483647, remaining));
+      expiry.unref();
+    }
+    scheduleExpiry();
+    socket.once('close', () => { clearTimeout(expiry); upgradedSessions.delete(socket); });
+  }
   const proxy = http.request({ ...shujiTarget, method: req.method, path: shujiPath(req.url), headers: shujiHeaders(req) });
   proxy.on('upgrade', (upstream, upstreamSocket, upstreamHead) => {
     const headers = [];
@@ -741,4 +819,8 @@ server.on('upgrade', (req, socket, head) => {
   proxy.end();
 });
 server.listen(Number(process.env.PORT || 6357), process.env.HOST || '0.0.0.0', () => console.log(`Clipboard and note listening on port ${server.address().port}`));
-for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => server.close(() => process.exit(0)));
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => {
+  server.close(() => process.exit(0));
+  server.closeIdleConnections();
+  setTimeout(() => process.exit(0), 5000).unref();
+});

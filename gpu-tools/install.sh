@@ -106,7 +106,7 @@ if [[ -z "$MACHINE_NAME" ]]; then
   MACHINE_NAME=${MACHINE_NAME:-$default_name}
 fi
 if [[ -z "$REPORT_URL" ]]; then
-  default_url=http://123.59.6.243:6357/notion/api/gpu/report
+  default_url=https://123.59.6.243/eunnote/notion/api/gpu/report
   if [[ -t 0 ]]; then
     read -r -p "GPU 信息发送链接 [$default_url]: " REPORT_URL
   fi

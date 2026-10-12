@@ -1,13 +1,21 @@
 /* global io */
 'use strict';
+const sitePath = window.eunNotePath || (path => path);
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
-const functionKey = new URLSearchParams(location.hash.slice(1)).get('key') || '';
+const functionKey = window.eunNoteSession ? 'session' : new URLSearchParams(location.hash.slice(1)).get('key') || '';
 const savedPairToken = localStorage.getItem('shuji:pair-token') || '';
 const socket = io({
-  path: '/shuji/socket.io',
+  path: sitePath('/shuji/socket.io'),
   auth: { functionKey, pairToken: savedPairToken }
+});
+socket.on('connect_error', async () => {
+  if (!window.eunNoteSession) return;
+  try {
+    const response = await fetch(sitePath('/auth/session'), { cache: 'no-store' });
+    if (response.status === 401) location.replace(`${sitePath('/auth/')}?next=${encodeURIComponent(sitePath('/shuji/'))}`);
+  } catch {}
 });
 const state = {
   mode: 'solo', room: null, selectedResultPlayer: null,
@@ -18,10 +26,9 @@ const state = {
 function showFunctionHome() {
   if (!functionKey) return;
   const destination = new URL(location.href);
-  destination.port = '6357';
-  destination.pathname = '/';
+  destination.pathname = sitePath('/');
   destination.search = '';
-  destination.hash = `key=${encodeURIComponent(functionKey)}`;
+  destination.hash = functionKey === 'session' ? '' : `key=${encodeURIComponent(functionKey)}`;
   $('#functionHome').href = destination.href;
   $('#functionHome').classList.remove('hidden');
 }
@@ -29,7 +36,7 @@ function showFunctionHome() {
 async function revealFunctionHome() {
   if (!functionKey) return;
   try {
-    const response = await fetch('/shuji/api/function-access', { headers: { Authorization: `Bearer ${functionKey}` }, cache: 'no-store' });
+    const response = await fetch(sitePath('/shuji/api/function-access'), { headers: functionKey === 'session' ? {} : { Authorization: `Bearer ${functionKey}` }, cache: 'no-store' });
     if (!response.ok) return;
     showFunctionHome();
   } catch {}

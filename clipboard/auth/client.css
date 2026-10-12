@@ -1,0 +1,2 @@
+.session-logout { flex-shrink: 0; border: 1px solid rgba(130,125,115,.25); border-radius: 999px; padding: 6px 9px; background: transparent; color: inherit; font: inherit; font-size: 11px; opacity: .65; cursor: pointer; }
+.session-logout:hover { opacity: 1; }

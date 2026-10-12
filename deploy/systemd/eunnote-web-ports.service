@@ -1,0 +1,12 @@
+[Unit]
+Description=Restrict direct public access to EunNote backend ports
+After=network-pre.target
+Before=nginx.service eunnote-gateway.service eunnote-shuji.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/eunnote/restrict-web-ports
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -45,8 +45,8 @@ test('note supports two boards, profiles, todos, wall images and restart persist
   });
   try {
     await start();
-    assert.equal((await fetch(`${base}/notion`)).status, 200);
-    const notePage = await (await fetch(`${base}/notion/`)).text();
+    assert.equal((await fetch(`${base}/notion`, { headers: auth() })).status, 200);
+    const notePage = await (await fetch(`${base}/notion/`, { headers: auth() })).text();
     assert.match(notePage, /<title>note<\/title>/);
     assert.match(notePage, /id="todoModalForm"/);
     assert.match(notePage, /id="gpuMachines"/);
@@ -222,7 +222,7 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     assert.ok(hourlySeries.some(todo => todo.dueAt === '2099-09-21T18:00:00.000Z' && todo.status === 'todo'));
 
     const upload = await fetch(`${base}/notion/api/upload`, {
-      method: 'POST', headers: { ...auth(), 'Content-Type': 'image/png' }, body: Buffer.from('small-test-image'),
+      method: 'POST', headers: { ...auth(), 'Content-Type': 'image/png' }, body: Buffer.from([137,80,78,71,13,10,26,10]),
     });
     assert.equal(upload.status, 201);
     const imageUrl = (await upload.json()).url;
@@ -230,7 +230,7 @@ test('note supports two boards, profiles, todos, wall images and restart persist
     assert.equal((await action({ type: 'addWall', authorId: 'left', text: '今日份照片', images: [imageUrl] })).status, 200);
     const wallId = (await state()).wall[0].id;
     const secondUpload = await fetch(`${base}/notion/api/upload`, {
-      method: 'POST', headers: { ...auth(), 'Content-Type': 'image/webp' }, body: Buffer.from('second-small-test-image'),
+      method: 'POST', headers: { ...auth(), 'Content-Type': 'image/webp' }, body: Buffer.from('RIFF1234WEBP'),
     });
     assert.equal(secondUpload.status, 201);
     const secondImageUrl = (await secondUpload.json()).url;

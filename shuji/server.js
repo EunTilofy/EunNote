@@ -20,10 +20,11 @@ const {
 
 const PORT = Number(process.env.PORT) || 6357;
 const HOST = process.env.HOST || '0.0.0.0';
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.SHUJI_DATA_DIR || path.join(__dirname, 'data');
 const IDENTITIES_FILE = process.env.IDENTITIES_FILE || path.join(DATA_DIR, 'identities.json');
 const PAIR_FILE = process.env.PAIR_FILE || path.join(DATA_DIR, 'pair.json');
 const FUNCTION_KEY_FILE = process.env.FUNCTION_KEY_FILE || '';
+const REQUIRE_FUNCTION_ACCESS = process.env.REQUIRE_FUNCTION_ACCESS === '1';
 const rooms = new Map();
 
 let functionKey = '';
@@ -98,6 +99,10 @@ function validFunctionKey(candidate) {
   const actual = Buffer.from(String(candidate || ''));
   const expected = Buffer.from(functionKey);
   return Boolean(functionKey) && actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+function validGateway(request) {
+  const remote = String(request.socket?.remoteAddress || request.connection?.remoteAddress || '').replace(/^::ffff:/, '');
+  return ['127.0.0.1', '::1'].includes(remote) && validFunctionKey(request.headers['x-eunnote-gateway-key']);
 }
 
 function randomId(bytes = 12) {
@@ -350,10 +355,21 @@ function newRoom({ code, mode, targetCount, length, roundLimit, status, pairMode
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  maxHttpBufferSize: 1024 * 1024,
+  allowRequest: (request, callback) => callback(null, !REQUIRE_FUNCTION_ACCESS || validGateway(request))
+});
 
 app.disable('x-powered-by');
+app.use((request, response, next) => {
+  if (REQUIRE_FUNCTION_ACCESS && request.path !== '/api/health' && !validGateway(request)) return response.status(401).json({ error: '请通过网站入口登录。' });
+  next();
+});
 app.use(express.json({ limit: '16kb' }));
+const publicBasePath = (process.env.PUBLIC_BASE_PATH || '').replace(/\/$/, '');
+if (publicBasePath && !/^\/[a-zA-Z0-9_-]+$/.test(publicBasePath)) throw new Error('Invalid PUBLIC_BASE_PATH');
+const indexPage = fs.readFileSync(path.join(__dirname, 'public/index.html'), 'utf8').replace(/(\b(?:href|src)=")\/(?!\/)/g, `$1${publicBasePath}/`);
+app.get(['/', '/index.html'], (_request, response) => response.type('html').send(indexPage));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 app.get('/api/health', (_request, response) => {
@@ -363,14 +379,14 @@ app.get('/api/health', (_request, response) => {
 app.get('/api/function-access', (request, response) => {
   response.set('Cache-Control', 'no-store');
   const authorization = request.get('authorization') || '';
-  if (!authorization.startsWith('Bearer ') || !validFunctionKey(authorization.slice(7))) {
+  if (!validGateway(request) && (!authorization.startsWith('Bearer ') || !validFunctionKey(authorization.slice(7)))) {
     return response.status(401).json({ ok: false });
   }
   response.json({ ok: true });
 });
 
 io.on('connection', (socket) => {
-  socket.data.functionAccess = validFunctionKey(socket.handshake.auth?.functionKey);
+  socket.data.functionAccess = validGateway(socket.request) || validFunctionKey(socket.handshake.auth?.functionKey);
   socket.data.pairSlot = socket.data.functionAccess
     ? pairStore.resolve(socket.handshake.auth?.pairToken)
     : null;

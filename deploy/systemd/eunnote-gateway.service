@@ -1,0 +1,40 @@
+[Unit]
+Description=EunNote authenticated gateway
+After=network.target eunnote-web-ports.service
+Wants=eunnote-web-ports.service
+
+[Service]
+User=zzx
+Group=zzx
+Type=simple
+WorkingDirectory=/home/zzx/EunNote/clipboard
+ExecStart=/home/zzx/.local/node/bin/node /home/zzx/EunNote/clipboard/server.mjs
+Environment=HOST=0.0.0.0
+Environment=PUBLIC_BASE_PATH=/eunnote
+Environment=PORT=6357
+Environment=BEHIND_PROXY=1
+Environment=PUBLIC_ORIGIN=https://SERVER_ADDRESS
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/zzx/EunNote/clipboard/data
+InaccessiblePaths=/home/zzx/.ssh /home/zzx/.config /run/user
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+TasksMax=128
+LimitNOFILE=8192
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

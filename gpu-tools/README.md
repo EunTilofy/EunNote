@@ -17,7 +17,7 @@ Run on the controller/login node of each machine or cluster:
 The installer asks for:
 
 1. The machine name shown in Note.
-2. The EunNote URL. A base URL such as `http://123.59.6.243:6357` is accepted;
+2. The EunNote URL. A base URL such as `https://123.59.6.243/eunnote` is accepted;
    the installer adds `/notion/api/gpu/report`.
 3. The private GPU report token from the EunNote server's
    `clipboard/data/gpu-monitor-token` file.
@@ -42,7 +42,7 @@ For unattended installation, keep the token off the command line:
 ```bash
 cat /secure/path/gpu-monitor-token | ./install.sh \
   --machine-name my-cluster \
-  --report-url http://123.59.6.243:6357 \
+  --report-url https://123.59.6.243/eunnote \
   --token-stdin
 ```
 

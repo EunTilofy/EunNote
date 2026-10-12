@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>进入 note</title>
+  <link rel="stylesheet" href="/auth/style.css">
+  <script src="/auth/login.js" defer></script>
+</head>
+<body>
+  <main>
+    <a class="brand" href="/">note<span>.</span></a>
+    <p class="eyebrow">OUR LITTLE SPACE</p>
+    <h1>欢迎回来。</h1>
+    <p class="hint">输入访问码，进入我们的空间。<br>此浏览器会保留登录 30 天。</p>
+    <form id="loginForm">
+      <label for="accessCode">访问码</label>
+      <input id="accessCode" type="password" required maxlength="256" autocomplete="current-password" autofocus>
+      <p id="loginError" role="alert" hidden></p>
+      <button id="loginButton" type="submit">进入空间 <span aria-hidden="true">↗</span></button>
+    </form>
+  </main>
+</body>
+</html>

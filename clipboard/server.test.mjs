@@ -35,9 +35,9 @@ test('authenticated shared text, replacement, limits and restart persistence', a
     const headers = { Authorization: `Bearer ${key}`, 'Content-Type': 'text/plain' };
     const get = () => fetch(`${base}/api/text`, { headers });
     const put = (body, extra = {}) => fetch(`${base}/api/text`, { method: 'PUT', headers: { ...headers, ...extra }, body });
-    assert.equal((await fetch(base)).status, 200);
-    assert.match(await (await fetch(base)).text(), /<title>功能页<\/title>/);
-    assert.equal((await fetch(`${base}/clipboard/`)).status, 200);
+    assert.equal((await fetch(base, { headers })).status, 200);
+    assert.match(await (await fetch(base, { headers })).text(), /<title>功能页<\/title>/);
+    assert.equal((await fetch(`${base}/clipboard/`, { headers })).status, 200);
     assert.equal((await fetch(`${base}/clipboard/app.js`)).status, 200);
     assert.equal((await fetch(`${base}/app.js`)).status, 200);
     assert.equal((await fetch(`${base}/api/text`)).status, 401);
