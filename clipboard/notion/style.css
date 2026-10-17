@@ -664,3 +664,27 @@ body.gpu-detail-open { overflow: hidden; }
 }
 @media (max-width: 400px) { .focus-list { grid-template-columns: minmax(0,1fr); } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+
+/* Two quiet quota cards share the same continuous gradient in either theme. */
+.copilot-section { margin-top: 38px; }
+.copilot-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
+.copilot-heading h2 { margin: 0; font-family: Georgia, "Noto Serif SC", serif; font-size: 28px; font-weight: 500; letter-spacing: -.6px; }
+.copilot-heading .eyebrow { margin-bottom: 6px; font-size: 10px; letter-spacing: 2px; }
+.copilot-updated { margin: 0 0 3px; color: var(--muted); font-size: 12px; }
+.copilot-accounts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.copilot-account { min-width: 0; padding: 19px 21px 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
+.copilot-account-heading, .copilot-account-footer { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.copilot-account-name { min-width: 0; color: var(--ink); font-size: 15px; font-weight: 550; overflow-wrap: anywhere; }
+.copilot-percent { flex: 0 0 auto; font-size: 24px; font-weight: 500; letter-spacing: -.8px; font-variant-numeric: tabular-nums; }
+.copilot-track { height: 5px; margin: 17px 0 12px; overflow: hidden; border-radius: 99px; background: rgba(120,117,108,.13); }
+.copilot-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #51ad8f, #57a1bc 28%, #a587d2 58%, #e7a560 82%, #dd6c7e); transition: width .7s ease; }
+.copilot-account-footer { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.copilot-account-status { text-align: right; font-size: 11px; }
+.copilot-account.is-stale .copilot-account-status { color: var(--accent); }
+.copilot-empty { grid-column: 1 / -1; margin: 0; padding: 22px 0; color: var(--muted); font-size: 13px; }
+@media (max-width: 640px) {
+  .copilot-accounts { grid-template-columns: 1fr; gap: 10px; }
+  .copilot-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .copilot-account { padding: 17px 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .copilot-track span { transition: none; } }

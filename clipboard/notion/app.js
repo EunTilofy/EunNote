@@ -5,6 +5,9 @@ const boardsEl = document.querySelector('#boards');
 const wallEl = document.querySelector('#wall');
 const gpuMachinesEl = document.querySelector('#gpuMachines');
 const gpuOverview = document.querySelector('#gpuOverview');
+const copilotAccountsEl = document.querySelector('#copilotAccounts');
+const copilotUpdatedEl = document.querySelector('#copilotUpdated');
+let copilotSignature = '';
 const gpuDetailModal = document.querySelector('#gpuDetailModal');
 const gpuDetailContent = document.querySelector('#gpuDetailContent');
 const gpuDetailClose = document.querySelector('#gpuDetailClose');
@@ -189,6 +192,7 @@ function sendPresence(status, personId = identity, quiet = true) {
     try {
       const result = await api('/presence', { method: 'POST', body: JSON.stringify(payload) });
       presence = result.presence || presence;
+    renderCopilotUsage(result.copilotUsage);
       renderPresence();
       return result;
     } catch (error) {
@@ -2412,6 +2416,64 @@ document.addEventListener('keydown', event => {
 renderComposeWallOptions();
 renderWallControls();
 
+function renderCopilotUsage(snapshot = {}) {
+  const accounts = snapshot.accounts || [];
+  const now = Date.now();
+  const freshness = accounts.map(account => account.status !== 'ok' || !account.updatedAt || now - Date.parse(account.updatedAt) > 11 * 60_000);
+  const signature = JSON.stringify([snapshot, freshness]);
+  if (signature === copilotSignature) return;
+  copilotSignature = signature;
+  copilotAccountsEl.replaceChildren();
+  copilotUpdatedEl.textContent = snapshot.updatedAt
+    ? `每 5 分钟更新 · 最近 ${new Date(snapshot.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+    : '每 5 分钟更新';
+  if (!accounts.length) {
+    const empty = document.createElement('p');
+    empty.className = 'copilot-empty';
+    empty.textContent = '等待后台首次更新额度';
+    copilotAccountsEl.append(empty);
+    return;
+  }
+  const format = value => typeof value === 'number' ? value.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '—';
+  accounts.forEach((account, index) => {
+    const row = document.createElement('article');
+    row.className = 'copilot-account';
+    row.classList.toggle('is-stale', freshness[index]);
+    const heading = document.createElement('div');
+    heading.className = 'copilot-account-heading';
+    const name = document.createElement('span');
+    name.className = 'copilot-account-name';
+    name.textContent = account.login;
+    const percentage = document.createElement('strong');
+    percentage.className = 'copilot-percent';
+    const hasPercent = typeof account.percent === 'number';
+    percentage.textContent = hasPercent ? `${account.percent.toFixed(2)}%` : account.unlimited ? '不限额' : '—';
+    heading.append(name, percentage);
+    const track = document.createElement('div');
+    track.className = 'copilot-track';
+    track.setAttribute('role', 'progressbar');
+    track.setAttribute('aria-label', `${account.login} 已用额度`);
+    track.setAttribute('aria-valuemin', '0');
+    track.setAttribute('aria-valuemax', '100');
+    if (hasPercent) track.setAttribute('aria-valuenow', String(Math.max(0, Math.min(100, account.percent))));
+    track.setAttribute('aria-valuetext', `${format(account.used)} / ${account.unlimited ? '不限额' : format(account.quota)}，${percentage.textContent}`);
+    const fill = document.createElement('span');
+    fill.style.width = `${hasPercent ? Math.max(0, Math.min(100, account.percent)) : 0}%`;
+    track.append(fill);
+    const footer = document.createElement('div');
+    footer.className = 'copilot-account-footer';
+    const amount = document.createElement('span');
+    amount.textContent = `${format(account.used)} / ${account.unlimited ? '不限额' : format(account.quota)}`;
+    const status = document.createElement('span');
+    status.className = 'copilot-account-status';
+    status.textContent = freshness[index] ? (account.updatedAt ? '更新延迟 · 保留上次数据' : '暂时无法查询') : '已用 / 额度';
+    if (account.resetAt) amount.title = `下次重置：${new Date(account.resetAt).toLocaleString('zh-CN')}`;
+    footer.append(amount, status);
+    row.append(heading, track, footer);
+    copilotAccountsEl.append(row);
+  });
+}
+
 async function refresh() {
   if (!token) {
     setStatus('缺少访问密钥', 'error');
@@ -2422,6 +2484,7 @@ async function refresh() {
   try {
     const result = await api('/state');
     presence = result.presence || presence;
+    renderCopilotUsage(result.copilotUsage);
     const latestGpuMachines = result.gpuMachines || [];
     if (gpuDragState || gpuOrderSaving) deferredGpuMachines = latestGpuMachines;
     else gpuMachines = latestGpuMachines;

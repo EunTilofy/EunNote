@@ -1,0 +1,31 @@
+[Unit]
+Description=Refresh two Copilot premium_interactions quotas
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=zzx
+Group=zzx
+WorkingDirectory=/home/zzx/EunNote
+ExecStart=/usr/bin/python3 /home/zzx/EunNote/copilot-usage/usage.py --refresh --quiet
+EnvironmentFile=-/etc/eunnote/copilot-usage-network.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+TimeoutStartSec=100
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/zzx/EunNote/clipboard/data/copilot
+InaccessiblePaths=/home/zzx/.ssh /home/zzx/.codex /home/zzx/.config /run/user
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=128M
+TasksMax=16

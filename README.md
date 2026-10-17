@@ -12,6 +12,7 @@ EunNote is the source tree for the private tools published through HTTPS:
 ```text
 EunNote/
 ├── clipboard/       # launcher, clipboard, note, GPU ingestion API
+├── copilot-usage/   # two-account premium usage CLI and five-minute collector
 ├── gpu-tools/       # GPU filler, tracker, ggpu, and installer
 ├── shuji/           # 数迹 server, client, and tests
 └── deploy/systemd/  # service unit templates used by this host
@@ -36,7 +37,7 @@ npm ci
 npm test
 
 cd ~/EunNote/clipboard
-node --test app.test.mjs server.test.mjs notion.test.mjs security.test.mjs
+node --test app.test.mjs server.test.mjs notion.test.mjs security.test.mjs copilot-usage.test.mjs
 ```
 
 The clipboard service has no third-party runtime dependencies. 数迹 uses the
@@ -103,3 +104,12 @@ The renewal timer checks short-lived IP certificates every six hours and
 reloads Nginx after renewal. Check its status with
 `systemctl status eunnote-cert-renew.timer`. Website hardening does not replace
 host recovery or revocation of previously exposed SSH keys.
+
+## Copilot quota monitor
+
+`usage` shows the two accounts' premium usage as colored terminal lines with
+used / quota and percentages. `usage --cached` reads the five-minute background
+snapshot. Note shows the same two accounts below GPU usage. See
+[`copilot-usage/README.md`](copilot-usage/README.md) for installation, credential
+sources and error handling. Authentication files remain outside Git and the
+web server only reads sanitized quota data. Codex configuration is unchanged.

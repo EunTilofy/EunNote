@@ -4,11 +4,13 @@ import { createReadStream, mkdirSync, readFileSync, renameSync, statSync, unlink
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSecurity, sameSecret } from './security.mjs';
+import { createCopilotUsageReader } from './copilot-usage.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.CLIPBOARD_STATE_DIR || join(root, 'data');
 const notionDir = join(dataDir, 'notion');
 const mediaDir = join(notionDir, 'media');
+const copilotUsage = createCopilotUsageReader(join(dataDir, 'copilot', 'usage.json'));
 const textLimit = 2 * 1024 * 1024;
 const jsonLimit = 1024 * 1024;
 const imageLimit = 8 * 1024 * 1024;
@@ -709,7 +711,7 @@ const server = http.createServer({ maxHeaderSize: 16384 }, async (req, res) => {
     }
     if (path === '/notion/api/state' && req.method === 'GET') {
       if (!authorized(req)) return reply(res, 401, { error: '访问密钥无效，请使用完整链接。' });
-      return reply(res, 200, { state: notionState, presence: presenceSnapshot(), gpuMachines: gpuSnapshot() });
+      return reply(res, 200, { state: notionState, presence: presenceSnapshot(), gpuMachines: gpuSnapshot(), copilotUsage: copilotUsage() });
     }
     if (path === '/notion/api/gpu/machine' && req.method === 'DELETE') {
       if (!authorized(req)) return reply(res, 401, { error: '访问密钥无效，请使用完整链接。' });
