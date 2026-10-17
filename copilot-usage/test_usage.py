@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import urllib.error
+from unittest.mock import MagicMock, patch
 
 spec = importlib.util.spec_from_file_location('quota_usage', Path(__file__).with_name('usage.py'))
 usage = importlib.util.module_from_spec(spec)
@@ -68,6 +69,24 @@ class UsageTests(unittest.TestCase):
             self.assertNotIn('secret', json.dumps(row))
             self.assertNotIn('sensitive-test-value', json.dumps(row))
             self.assertEqual(row['error'], '认证失效或无权限，请重新授权')
+
+    def test_transient_network_failures_retry_but_auth_errors_do_not(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(self.payload()).encode()
+        opener = MagicMock()
+        opener.open.side_effect = [urllib.error.URLError('reset'), TimeoutError(), response]
+        with patch.object(usage.urllib.request, 'build_opener', return_value=opener), patch.object(usage.time, 'sleep') as sleep:
+            result = usage.github_usage('private-test-token')
+        self.assertEqual(result['login'], 'account')
+        self.assertEqual(opener.open.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+        opener.open.reset_mock()
+        opener.open.side_effect = urllib.error.HTTPError(usage.ENDPOINT, 401, 'Unauthorized', {}, None)
+        with patch.object(usage.urllib.request, 'build_opener', return_value=opener), patch.object(usage.time, 'sleep') as sleep:
+            with self.assertRaises(urllib.error.HTTPError):
+                usage.github_usage('private-test-token')
+        self.assertEqual(opener.open.call_count, 1)
+        sleep.assert_not_called()
 
     def test_atomic_private_cache_and_ansi_band_without_bar_characters(self):
         with tempfile.TemporaryDirectory() as directory:

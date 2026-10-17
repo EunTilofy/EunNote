@@ -28,7 +28,9 @@ exceed the quota; only the visual line is capped at 100%.
 The cache is written atomically with mode 0600 at
 `clipboard/data/copilot/usage.json`. It contains account names, quota values,
 reset dates, timestamps and safe error messages only. On a failed refresh the
-last successful result and its original timestamp are preserved. The frontend
+last successful result and its original timestamp are preserved. Transient
+connection failures and upstream HTTP 5xx errors are retried up to three times
+with bounded timeouts and backoff; authentication failures are not retried. The frontend
 marks failed refreshes or results older than 11 minutes as delayed.
 
 ## Five-minute background collection

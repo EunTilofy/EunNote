@@ -74,11 +74,20 @@ def github_usage(token):
         'Accept': 'application/json',
     })
     opener = urllib.request.build_opener(NoRedirects())
-    with opener.open(request, timeout=25) as response:
-        raw = response.read(1024 * 1024 + 1)
-    if len(raw) > 1024 * 1024:
-        raise ValueError('invalid_response')
-    return json.loads(raw)
+    for attempt in range(3):
+        try:
+            with opener.open(request, timeout=15) as response:
+                raw = response.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
+                raise ValueError('invalid_response')
+            return json.loads(raw)
+        except urllib.error.HTTPError as error:
+            if error.code < 500 or attempt == 2:
+                raise
+        except (urllib.error.URLError, TimeoutError, ConnectionError):
+            if attempt == 2:
+                raise
+        time.sleep(2 ** attempt)
 
 
 def credentials(account_id, migration_token, copilot_config):
@@ -156,7 +165,7 @@ def collector_lock(path):
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     with path.with_suffix('.lock').open('a') as handle:
         os.chmod(handle.name, 0o600)
-        deadline = time.monotonic() + 60
+        deadline = time.monotonic() + 40
         while True:
             try:
                 fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
