@@ -55,10 +55,23 @@ class UsageTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 usage.credentials('copilot', Path(directory)/'unused', path)
 
+    def test_both_accounts_read_independent_json_configs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            paths = [Path(directory) / 'first.json', Path(directory) / 'second.json']
+            for path, login in zip(paths, ['first', 'second']):
+                path.write_text(json.dumps({'lastLoggedInUser': {'host': 'https://github.com', 'login': login},
+                    'authTokens': {f'https://github.com:{login}:github': {'token': f'{login}-private-token'}}}))
+            before = [path.read_bytes() for path in paths]
+            self.assertEqual(usage.credentials('migration', *paths), ('first-private-token', 'first'))
+            self.assertEqual(usage.credentials('copilot', *paths), ('second-private-token', 'second'))
+            self.assertEqual(before, [path.read_bytes() for path in paths])
+            with self.assertRaises(ValueError):
+                usage.normalize(self.payload(), 'migration', 'first')
+
     def test_failure_preserves_last_good_usage_without_secrets_or_body(self):
         with tempfile.TemporaryDirectory() as directory:
-            token = Path(directory) / 'github_token'
-            token.write_text('sensitive-test-value')
+            token = Path(directory) / 'config.json'
+            token.write_text(json.dumps({'lastLoggedInUser': {'host': 'https://github.com', 'login': 'account'}, 'authTokens': {'https://github.com:account:github': {'token': 'sensitive-test-value'}}}))
             old = {'used': 15, 'quota': 100, 'percent': 15, 'login': 'account', 'updatedAt': '2026-10-17T00:00:00Z', 'token': 'old-secret'}
             def fail(_token):
                 raise urllib.error.HTTPError(usage.ENDPOINT, 401, 'sensitive-test-value', {}, None)

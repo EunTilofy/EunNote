@@ -111,5 +111,7 @@ host recovery or revocation of previously exposed SSH keys.
 used / quota and percentages. `usage --cached` reads the five-minute background
 snapshot. Note shows the same two accounts below GPU usage. See
 [`copilot-usage/README.md`](copilot-usage/README.md) for installation, credential
-sources and error handling. Authentication files remain outside Git and the
+sources and error handling. Both accounts are read from separate private
+`config.json` files; the Copilot API migration package is not required.
+Authentication files remain outside Git and the
 web server only reads sanitized quota data. Codex configuration is unchanged.

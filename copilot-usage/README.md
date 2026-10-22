@@ -2,13 +2,20 @@
 
 This collector shows only `quota_snapshots.premium_interactions` for two accounts:
 
-- The GitHub token in `~/copilot-api-migration/auth/github_token`.
+- The saved account in `~/.copilot-minghuisong/config.json`.
 - The current `lastLoggedInUser` in `~/.copilot/config.json`, using its GitHub authentication entry.
 
 No Codex settings are read or modified. No API proxy, Docker container, public
-port, or LLM request is needed. The upstream endpoint is the same GitHub usage
-endpoint used by the migration package. It is an internal GitHub API and can
+port, or LLM request is needed. Both accounts use the GitHub usage endpoint directly. The API proxy source
+and migration archive are not needed. This is an internal GitHub API and can
 change; missing quota data is shown as unavailable rather than zero usage.
+
+Both credential files use the Copilot JSON authentication structure with
+`lastLoggedInUser` and `authTokens`. Their directories must be mode 0700 and
+files mode 0600. The first account was moved without changing its existing
+token; no credential rotation or revocation is performed. Use
+`--migration-config PATH` or `--copilot-config PATH` to override a config path.
+Never store these files in Git.
 
 ```bash
 ln -s ~/EunNote/copilot-usage/usage ~/.local/bin/usage

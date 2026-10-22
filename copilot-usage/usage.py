@@ -90,10 +90,9 @@ def github_usage(token):
         time.sleep(2 ** attempt)
 
 
-def credentials(account_id, migration_token, copilot_config):
-    if account_id == 'migration':
-        return migration_token.read_text().strip(), None
-    config = json.loads(copilot_config.read_text())
+def credentials(account_id, migration_config, copilot_config):
+    config_path = migration_config if account_id == 'migration' else copilot_config
+    config = json.loads(config_path.read_text())
     user = config.get('lastLoggedInUser') or {}
     host = user.get('host', '').rstrip('/')
     login = user.get('login')
@@ -120,11 +119,11 @@ def failure_message(error):
     return '连接失败，等待下次更新'
 
 
-def collect_one(account_id, old, migration_token, copilot_config, fetcher=github_usage):
+def collect_one(account_id, old, migration_config, copilot_config, fetcher=github_usage):
     attempted = utc_now()
     expected = None
     try:
-        token, expected = credentials(account_id, migration_token, copilot_config)
+        token, expected = credentials(account_id, migration_config, copilot_config)
         result = normalize(fetcher(token), account_id, expected)
         return {**result, 'status': 'ok', 'updatedAt': attempted, 'lastAttemptAt': attempted, 'error': None}
     except Exception as error:
@@ -180,11 +179,11 @@ def collector_lock(path):
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def update(cache, migration_token, copilot_config):
+def update(cache, migration_config, copilot_config):
     with collector_lock(cache):
         old = {account.get('id'): account for account in read_cache(cache)['accounts'] if isinstance(account, dict)}
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            futures = [pool.submit(collect_one, key, old.get(key, {}), migration_token, copilot_config) for key in ('migration', 'copilot')]
+            futures = [pool.submit(collect_one, key, old.get(key, {}), migration_config, copilot_config) for key in ('migration', 'copilot')]
             accounts = [future.result() for future in futures]
         result = {'version': 1, 'updatedAt': utc_now(), 'accounts': accounts}
         atomic_write(cache, result)
@@ -240,11 +239,11 @@ def main():
     parser.add_argument('--json', action='store_true', help='输出不含凭据的额度 JSON')
     parser.add_argument('--color', choices=['auto', 'always', 'never'], default='auto')
     parser.add_argument('--cache', type=Path, default=DEFAULT_CACHE)
-    parser.add_argument('--migration-token', type=Path, default=Path.home() / 'copilot-api-migration/auth/github_token')
+    parser.add_argument('--migration-config', type=Path, default=Path.home() / '.copilot-minghuisong/config.json', help='第一个账号的独立 config.json')
     parser.add_argument('--copilot-config', type=Path, default=Path.home() / '.copilot/config.json')
     args = parser.parse_args()
     try:
-        data = read_cache(args.cache) if args.cached and not args.refresh else update(args.cache, args.migration_token, args.copilot_config)
+        data = read_cache(args.cache) if args.cached and not args.refresh else update(args.cache, args.migration_config, args.copilot_config)
     except Exception:
         print('额度更新失败，未修改登录配置。', file=sys.stderr)
         return 1
