@@ -8,6 +8,7 @@ const gpuOverview = document.querySelector('#gpuOverview');
 const copilotAccountsEl = document.querySelector('#copilotAccounts');
 const copilotUpdatedEl = document.querySelector('#copilotUpdated');
 let copilotSignature = '';
+let copilotSnapshot = {};
 const gpuDetailModal = document.querySelector('#gpuDetailModal');
 const gpuDetailContent = document.querySelector('#gpuDetailContent');
 const gpuDetailClose = document.querySelector('#gpuDetailClose');
@@ -192,7 +193,6 @@ function sendPresence(status, personId = identity, quiet = true) {
     try {
       const result = await api('/presence', { method: 'POST', body: JSON.stringify(payload) });
       presence = result.presence || presence;
-    renderCopilotUsage(result.copilotUsage);
       renderPresence();
       return result;
     } catch (error) {
@@ -2416,17 +2416,50 @@ document.addEventListener('keydown', event => {
 renderComposeWallOptions();
 renderWallControls();
 
-function renderCopilotUsage(snapshot = {}) {
-  const accounts = snapshot.accounts || [];
+function copilotReportTime(account, now = Date.now()) {
+  const stamp = account.updatedAt ? Date.parse(account.updatedAt) : NaN;
+  if (!Number.isFinite(stamp)) return { relative: '尚未成功上报', absolute: '', iso: '', delayed: true };
+  const minutes = Math.max(0, Math.floor((now - stamp) / 60_000));
+  const relative = minutes < 1 ? '刚刚上报' : minutes < 60 ? `${minutes} 分钟前上报`
+    : minutes < 1440 ? `${Math.floor(minutes / 60)} 小时前上报` : `${Math.floor(minutes / 1440)} 天前上报`;
+  const date = new Date(stamp);
+  return {
+    relative,
+    absolute: date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+    iso: date.toISOString(),
+    delayed: account.status !== 'ok' || now - stamp > 7 * 60_000,
+  };
+}
+
+function updateCopilotTimes() {
   const now = Date.now();
-  const freshness = accounts.map(account => account.status !== 'ok' || !account.updatedAt || now - Date.parse(account.updatedAt) > 11 * 60_000);
-  const signature = JSON.stringify([snapshot, freshness]);
-  if (signature === copilotSignature) return;
+  for (const [index, account] of (copilotSnapshot.accounts || []).entries()) {
+    const row = copilotAccountsEl.children[index];
+    if (!row || !row.classList.contains('copilot-account')) continue;
+    const info = copilotReportTime(account, now);
+    row.classList.toggle('is-stale', info.delayed);
+    row.querySelector('.copilot-report-relative').textContent = info.relative + (info.delayed && info.iso ? ' · 更新延迟' : '');
+    const time = row.querySelector('.copilot-report-exact');
+    time.textContent = info.absolute;
+    if (info.iso) {
+      time.dateTime = info.iso;
+      time.title = `最后成功上报（本地时间）：${info.absolute}\nUTC：${info.iso}`;
+    } else {
+      time.removeAttribute('datetime');
+      time.removeAttribute('title');
+    }
+  }
+}
+
+function renderCopilotUsage(snapshot) {
+  if (!snapshot) return;
+  copilotSnapshot = snapshot;
+  const accounts = snapshot.accounts || [];
+  const signature = JSON.stringify(snapshot);
+  if (signature === copilotSignature) { updateCopilotTimes(); return; }
   copilotSignature = signature;
   copilotAccountsEl.replaceChildren();
-  copilotUpdatedEl.textContent = snapshot.updatedAt
-    ? `每 5 分钟更新 · 最近 ${new Date(snapshot.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
-    : '每 5 分钟更新';
+  copilotUpdatedEl.textContent = '每 3 分钟更新';
   if (!accounts.length) {
     const empty = document.createElement('p');
     empty.className = 'copilot-empty';
@@ -2435,10 +2468,9 @@ function renderCopilotUsage(snapshot = {}) {
     return;
   }
   const format = value => typeof value === 'number' ? value.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '—';
-  accounts.forEach((account, index) => {
+  accounts.forEach(account => {
     const row = document.createElement('article');
     row.className = 'copilot-account';
-    row.classList.toggle('is-stale', freshness[index]);
     const heading = document.createElement('div');
     heading.className = 'copilot-account-heading';
     const name = document.createElement('span');
@@ -2466,12 +2498,17 @@ function renderCopilotUsage(snapshot = {}) {
     amount.textContent = `${format(account.used)} / ${account.unlimited ? '不限额' : format(account.quota)}`;
     const status = document.createElement('span');
     status.className = 'copilot-account-status';
-    status.textContent = freshness[index] ? (account.updatedAt ? '更新延迟 · 保留上次数据' : '暂时无法查询') : '已用 / 额度';
+    const relative = document.createElement('span');
+    relative.className = 'copilot-report-relative';
+    const exact = document.createElement('time');
+    exact.className = 'copilot-report-exact';
+    status.append(relative, exact);
     if (account.resetAt) amount.title = `下次重置：${new Date(account.resetAt).toLocaleString('zh-CN')}`;
     footer.append(amount, status);
     row.append(heading, track, footer);
     copilotAccountsEl.append(row);
   });
+  updateCopilotTimes();
 }
 
 async function refresh() {
@@ -2507,6 +2544,7 @@ async function refresh() {
 
 refresh();
 setInterval(updateFocusTimers, 30_000);
+setInterval(updateCopilotTimes, 15_000);
 setInterval(() => {
   if (presenceStarted && identity && !manuallySleeping) sendPresence('online');
 }, 10_000);

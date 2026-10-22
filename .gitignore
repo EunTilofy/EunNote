@@ -17,3 +17,10 @@ shuji/data/**
 *.tmp
 coverage/
 .DS_Store
+
+# Copilot credentials and migration exports (never commit real account files)
+**/.copilot*/
+**/copilot-api-migration/
+**/copilot-api-migration*.tar*
+**/github_token
+**/copilot-config*.json

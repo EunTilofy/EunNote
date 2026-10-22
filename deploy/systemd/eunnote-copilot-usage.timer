@@ -1,8 +1,8 @@
 [Unit]
-Description=Refresh Copilot quotas every five minutes
+Description=Refresh Copilot quotas every three minutes
 
 [Timer]
-OnCalendar=*-*-* *:0/5:00
+OnCalendar=*-*-* *:0/3:00
 OnBootSec=1min
 Persistent=true
 AccuracySec=1s

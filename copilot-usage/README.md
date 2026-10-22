@@ -38,9 +38,12 @@ reset dates, timestamps and safe error messages only. On a failed refresh the
 last successful result and its original timestamp are preserved. Transient
 connection failures and upstream HTTP 5xx errors are retried up to three times
 with bounded timeouts and backoff; authentication failures are not retried. The frontend
-marks failed refreshes or results older than 11 minutes as delayed.
+shows each account’s last successful report as a relative age and an exact local
+date/time (with UTC in the tooltip). These ages update even between reports.
+Failed refreshes or results older than 7 minutes are marked as delayed; a failed
+attempt never replaces the last successful report time.
 
-## Five-minute background collection
+## Three-minute background collection
 
 Create `~/EunNote/clipboard/data/copilot` as `zzx` with mode 0700. Install
 `deploy/systemd/eunnote-copilot-usage.{service,timer}` into `/etc/systemd/system`,
@@ -60,4 +63,4 @@ Note displays the quota section immediately below GPU usage. Existing GPU
 reporting schedules are unchanged.
 
 Tests: `python3 -m unittest discover -s copilot-usage -p 'test_*.py'` and
-`node --test clipboard/copilot-usage.test.mjs`.
+`node --test clipboard/copilot-usage.test.mjs clipboard/copilot-time.test.mjs`.

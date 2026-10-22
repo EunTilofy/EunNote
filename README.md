@@ -12,7 +12,7 @@ EunNote is the source tree for the private tools published through HTTPS:
 ```text
 EunNote/
 ├── clipboard/       # launcher, clipboard, note, GPU ingestion API
-├── copilot-usage/   # two-account premium usage CLI and five-minute collector
+├── copilot-usage/   # two-account premium usage CLI and three-minute collector
 ├── gpu-tools/       # GPU filler, tracker, ggpu, and installer
 ├── shuji/           # 数迹 server, client, and tests
 └── deploy/systemd/  # service unit templates used by this host
@@ -37,7 +37,7 @@ npm ci
 npm test
 
 cd ~/EunNote/clipboard
-node --test app.test.mjs server.test.mjs notion.test.mjs security.test.mjs copilot-usage.test.mjs
+node --test app.test.mjs server.test.mjs notion.test.mjs security.test.mjs copilot-usage.test.mjs copilot-time.test.mjs
 ```
 
 The clipboard service has no third-party runtime dependencies. 数迹 uses the
@@ -108,7 +108,7 @@ host recovery or revocation of previously exposed SSH keys.
 ## Copilot quota monitor
 
 `usage` shows the two accounts' premium usage as colored terminal lines with
-used / quota and percentages. `usage --cached` reads the five-minute background
+used / quota and percentages. `usage --cached` reads the three-minute background
 snapshot. Note shows the same two accounts below GPU usage. See
 [`copilot-usage/README.md`](copilot-usage/README.md) for installation, credential
 sources and error handling. Both accounts are read from separate private

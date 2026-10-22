@@ -679,7 +679,8 @@ body.gpu-detail-open { overflow: hidden; }
 .copilot-track { height: 5px; margin: 17px 0 12px; overflow: hidden; border-radius: 99px; background: rgba(120,117,108,.13); }
 .copilot-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #51ad8f, #57a1bc 28%, #a587d2 58%, #e7a560 82%, #dd6c7e); transition: width .7s ease; }
 .copilot-account-footer { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.copilot-account-status { text-align: right; font-size: 11px; }
+.copilot-account-status { display: flex; flex-direction: column; gap: 3px; text-align: right; font-size: 11px; }
+.copilot-report-exact { color: var(--muted); font-size: 10px; white-space: nowrap; }
 .copilot-account.is-stale .copilot-account-status { color: var(--accent); }
 .copilot-empty { grid-column: 1 / -1; margin: 0; padding: 22px 0; color: var(--muted); font-size: 13px; }
 @media (max-width: 640px) {
